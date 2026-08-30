@@ -36,6 +36,7 @@ const container = document.getElementById('canvas-container');
 
 container.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;
+  console.log('[CLICKLOG] canvas pointerdown', 'clientX=', e.clientX, 'clientY=', e.clientY, 'target=', e.target.tagName);
   container.setPointerCapture(e.pointerId);
   isPointerDown = true;
   mouseDownPos = { x: e.clientX, y: e.clientY };
@@ -86,6 +87,10 @@ function cancelDrag() {
 container.addEventListener('pointercancel', cancelDrag);
 container.addEventListener('contextmenu', e => { if (e.button !== 2) e.preventDefault(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) cancelDrag(); });
+
+window.addEventListener('pointerdown', (e) => {
+  console.log('[CLICKLOG] window pointerdown target=', e.target.id || e.target.tagName, 'clientX=', e.clientX, 'clientY=', e.clientY);
+}, true);
 
 window.addEventListener('pointerup', (e) => {
   if (e.button === 0 && isPointerDown) {
@@ -178,7 +183,19 @@ window.addEventListener('resize', () => {
 });
 
 // --- Button event listeners ---
+['btn-act-primary','btn-act-repair','btn-undo-move','btn-end-turn'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('pointerdown', e => {
+    console.log('[CLICKLOG] pointerdown on', id, 'target=', e.target.tagName, 'class=', e.target.className);
+  });
+  el.addEventListener('click', e => {
+    console.log('[CLICKLOG] click on', id);
+  });
+});
+
 document.getElementById('btn-act-primary').addEventListener('click', () => {
+  console.log('[CLICKLOG] btn-act-primary handler fired');
   const unit = gameState.selectedUnit;
   if (!unit || unit.faction !== FACTION.PLAYER || unit.hasActed) return;
   if (gameState.attackPreview) {
@@ -193,12 +210,16 @@ document.getElementById('btn-act-primary').addEventListener('click', () => {
 });
 
 document.getElementById('btn-act-repair').addEventListener('click', () => {
+  console.log('[CLICKLOG] btn-act-repair handler fired');
   if (gameState.selectedUnit && gameState.selectedUnit.faction === FACTION.PLAYER && !gameState.selectedUnit.hasActed) {
     executePlayerRepair(gameState.selectedUnit);
   }
 });
 
-document.getElementById('btn-undo-move').addEventListener('click', undoPlayerMove);
+document.getElementById('btn-undo-move').addEventListener('click', () => {
+  console.log('[CLICKLOG] btn-undo-move handler fired');
+  undoPlayerMove();
+});
 document.getElementById('btn-end-turn').addEventListener('click', executeEnemyPhase);
 
 document.addEventListener('keydown', (e) => {

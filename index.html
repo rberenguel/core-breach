@@ -69,7 +69,7 @@
   <footer id="game-footer" class="absolute left-3 right-3 z-30 flex flex-row items-end gap-3 pointer-events-none">
 
     <!-- Selected Unit Card -->
-    <div id="unit-card" class="cyber-panel p-4 pointer-events-none border-blue-500/60 glow-blue flex-1 hidden">
+    <div id="unit-card" class="cyber-panel p-4 pointer-events-none border-blue-500/60 glow-blue flex-1 hidden" style="pointer-events:all">
       <div class="flex items-start justify-between">
         <div>
           <div id="unit-faction" class="text-[10px] uppercase font-mono-tech text-blue-400 tracking-wider font-bold">BLUE FACTION</div>
@@ -105,7 +105,7 @@
     </div>
 
     <!-- End Turn Trigger Button -->
-    <div class="flex items-center gap-2 pointer-events-auto shrink-0 ml-auto">
+    <div class="flex items-center gap-2 shrink-0 ml-auto" style="pointer-events:all">
       <button id="btn-end-turn" class="w-14 h-14 bg-gradient-to-br from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white border border-red-400 glow-red cyber-btn transition active:scale-95 flex items-center justify-center shadow-lg shadow-red-600/30" title="Execute Turn (Space)">
         <i class="ph-light ph-play" style="font-size:1.4em"></i>
       </button>
@@ -188,7 +188,9 @@
       .catch(() => {});
 
     document.getElementById('btn-startup-play').addEventListener('click', () => {
-      document.getElementById('startup-modal').style.display = 'none';
+      const modal = document.getElementById('startup-modal');
+      modal.style.display = 'none';
+      modal.style.zIndex = '-10';
     });
   </script>
   <script>

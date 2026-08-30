@@ -48,7 +48,7 @@ button {
   color: rgba(80, 180, 255, 0.75);
   font-size: 1.375rem;
   user-select: none;
-  pointer-events: auto;
+  pointer-events: all;
   flex-shrink: 0;
 }
 
