@@ -47,16 +47,16 @@ export const Materials = {
     color: 0x0066ff,
     emissive: 0x0033aa,
     emissiveIntensity: 0.65,
-    roughness: 0.25,
-    metalness: 0.6
+    roughness: 0.7,
+    metalness: 0.15
   }),
 
   enemyRed: new THREE.MeshStandardMaterial({
     color: 0xff0033,
     emissive: 0xb7001a,
     emissiveIntensity: 0.75,
-    roughness: 0.25,
-    metalness: 0.6
+    roughness: 0.7,
+    metalness: 0.15
   }),
 
   spawnerRing: new THREE.MeshBasicMaterial({ color: 0xff0033, wireframe: true })
@@ -113,9 +113,9 @@ export function createMountainMesh() {
 
 export function createStrikerMesh() {
   const group = new THREE.Group();
-  const cubeGeo = new THREE.BoxGeometry(1.1, 1.1, 1.1);
+  const cubeGeo = new THREE.BoxGeometry(0.85, 0.85, 0.85);
   const cube = new THREE.Mesh(cubeGeo, Materials.playerBlue);
-  cube.position.y = 0.55;
+  cube.position.y = 0.43;
   cube.castShadow = true;
   group.add(cube);
   return group;
@@ -124,20 +124,20 @@ export function createStrikerMesh() {
 export function createArtilleryMesh() {
   const group = new THREE.Group();
 
-  const baseGeo = new THREE.BoxGeometry(1.05, 0.75, 1.05);
+  const baseGeo = new THREE.BoxGeometry(0.8, 0.58, 0.8);
   const base = new THREE.Mesh(baseGeo, Materials.playerBlue);
-  base.position.y = 0.38;
+  base.position.y = 0.29;
   base.castShadow = true;
   group.add(base);
 
-  const postGeo = new THREE.BoxGeometry(0.28, 0.4, 0.28);
+  const postGeo = new THREE.BoxGeometry(0.22, 0.31, 0.22);
   const offsets = [
-    [-0.38, -0.38], [0.38, -0.38],
-    [-0.38, 0.38], [0.38, 0.38]
+    [-0.29, -0.29], [0.29, -0.29],
+    [-0.29, 0.29], [0.29, 0.29]
   ];
   offsets.forEach(([cx, cz]) => {
     const post = new THREE.Mesh(postGeo, Materials.playerBlue);
-    post.position.set(cx, 0.92, cz);
+    post.position.set(cx, 0.71, cz);
     post.castShadow = true;
     group.add(post);
   });
@@ -155,10 +155,10 @@ export function createLaserTankMesh() {
   // v2: back-right on ground  }
   // v3: top of back fin — nearly perpendicular above v1-v2, tilted ~11° toward barycenter
   const verts = new Float32Array([
-     0.00, 0.00,  0.85,   // v0 front apex (ground)
-    -0.35, 0.00, -0.55,   // v1 back-left (ground)
-     0.35, 0.00, -0.55,   // v2 back-right (ground)
-     0.00, 0.90, -0.38,   // v3 top fin (above back edge, leaning forward ~11°)
+     0.00, 0.00,  0.84,   // v0 front apex (ground)
+    -0.39, 0.00, -0.71,   // v1 back-left (ground)
+     0.39, 0.00, -0.71,   // v2 back-right (ground)
+     0.00, 0.99, -0.52,   // v3 top fin (above back edge, leaning forward ~11°)
   ]);
 
   // Face winding CCW from outside for correct outward normals
@@ -201,7 +201,6 @@ export function createScarabMesh() {
 export function createHornetMesh() {
   const group = new THREE.Group();
   const geo = new THREE.OctahedronGeometry(0.6, 0);
-  geo.scale(0.85, 1.25, 0.85);
 
   const diamond = new THREE.Mesh(geo, Materials.enemyRed);
   diamond.position.y = 1.0;
@@ -214,16 +213,12 @@ export function createHornetMesh() {
 
 export function createSpitterMesh() {
   const group = new THREE.Group();
+  const geo = new THREE.CylinderGeometry(0.6, 0.5, 0.35, 6);
 
-  const bottom = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.65, 0.4, 6), Materials.enemyRed);
-  bottom.position.y = 0.2;
-  bottom.castShadow = true;
-  group.add(bottom);
-
-  const top = new THREE.Mesh(new THREE.OctahedronGeometry(0.4, 0), Materials.enemyRed);
-  top.position.y = 0.75;
-  top.castShadow = true;
-  group.add(top);
+  const puck = new THREE.Mesh(geo, Materials.enemyRed);
+  puck.position.y = 0.35;
+  puck.castShadow = true;
+  group.add(puck);
 
   return group;
 }

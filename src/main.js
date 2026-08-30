@@ -147,10 +147,39 @@ function animate() {
   renderer.render(scene, camera);
 }
 
+const SEED_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const SEED_BASE = SEED_CHARS.length; // 52
+const SEED_LEN = 6;
+
+function seedToCode(seed) {
+  seed = seed >>> 0;
+  let code = '';
+  for (let i = 0; i < SEED_LEN; i++) {
+    code = SEED_CHARS[seed % SEED_BASE] + code;
+    seed = Math.floor(seed / SEED_BASE);
+  }
+  return code;
+}
+
+function codeToSeed(code) {
+  let n = 0;
+  for (const ch of code) {
+    const idx = SEED_CHARS.indexOf(ch);
+    if (idx === -1) return null;
+    n = n * SEED_BASE + idx;
+  }
+  return n >>> 0;
+}
+
 function parseSeedFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const raw = params.get('lvl');
   if (raw !== null) {
+    if (/^[a-zA-Z]{6}$/.test(raw)) {
+      const n = codeToSeed(raw);
+      if (n !== null) return n;
+    }
+    // legacy numeric seeds
     const n = parseInt(raw, 10);
     if (!isNaN(n)) return n >>> 0;
   }
@@ -159,9 +188,10 @@ function parseSeedFromUrl() {
 
 function applySeed(seed) {
   gameState.seed = seed;
-  document.getElementById('seed-display').innerText = seed;
+  const code = seedToCode(seed);
+  document.getElementById('seed-display').innerText = code;
   const url = new URL(window.location.href);
-  url.searchParams.set('lvl', seed);
+  url.searchParams.set('lvl', code);
   history.replaceState(null, '', url.toString());
 }
 

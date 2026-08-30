@@ -1,12 +1,12 @@
 # CYBER_BREACH — Pending Tasks
 
-## 1. Seeded RNG + URL replay
+## ~~1. Seeded RNG + URL replay~~ DONE
 - Implement a congruent (LCG or similar) random number generator to replace all `Math.random()` calls
 - Accept `?lvl=SEED` query parameter to seed the RNG at startup
 - Display the current seed somewhere visible in the UI (HUD corner)
 - Replaying the same seed must produce an identical scenario (deterministic level gen + enemy behavior)
 
-## 2. Simplify enemy shapes
+## ~~2. Simplify enemy shapes~~ DONE
 - Spitter (and any other overly-complex enemy) violates the "simple geometric primitives" rule from the design doc
 - All enemies must use single, recognisable low-poly shapes:
   - Scarab → 4-sided pyramid (square base)

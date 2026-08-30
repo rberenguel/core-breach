@@ -40,11 +40,11 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.getElementById('canvas-container').appendChild(renderer.domElement);
 
 // Low hemisphere — just enough to tint the ground bounce, not flood everything
-const hemiLight = new THREE.HemisphereLight(0x6699cc, 0x111122, 0.55);
+const hemiLight = new THREE.HemisphereLight(0x888888, 0x111111, 0.35);
 scene.add(hemiLight);
 
 // Very low ambient — shadows must actually be dark for shape to read
-const ambientLight = new THREE.AmbientLight(0x223344, 0.35);
+const ambientLight = new THREE.AmbientLight(0x333333, 0.20);
 scene.add(ambientLight);
 
 // Key light from upper-LEFT of the camera view (camera sits in +X+Y+Z octant).
@@ -70,7 +70,7 @@ dirLight.shadow.camera.bottom = -22;
 scene.add(dirLight);
 
 // Blue fill from camera-right (+X side) — lifts the key-shadow face with faction colour
-const blueRimLight = new THREE.DirectionalLight(0x0055ff, 1.0);
+const blueRimLight = new THREE.DirectionalLight(0x0055ff, 0.25);
 blueRimLight.position.set(28, 12, -8);
 scene.add(blueRimLight);
 
