@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>CYBER_BREACH // Tactical Protocol</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Three.js CDN (global, must load before modules) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <link rel="stylesheet" href="src/styles.css">
+</head>
+<body class="w-screen h-screen relative select-none">
+
+  <!-- 3D WebGL Canvas Layer -->
+  <div id="canvas-container" class="absolute inset-0 w-full h-full z-0 cursor-crosshair"></div>
+
+  <!-- Scanlines Retro Filter -->
+  <div class="scanlines absolute inset-0 z-10"></div>
+
+  <!-- Floating Combat Text -->
+  <div id="floating-layer" class="absolute inset-0 z-20 pointer-events-none"></div>
+
+  <!-- TOP HUD: Cores Status, Rounds, Camera Reset -->
+  <header class="absolute top-3 left-3 right-3 z-30 flex flex-wrap justify-between items-start gap-3 pointer-events-none">
+
+    <!-- Primary Objective: Green Cores -->
+    <div class="cyber-panel px-4 py-2.5 pointer-events-auto border-emerald-500/50 glow-green flex items-center gap-4">
+      <div class="flex flex-col">
+        <span class="text-[10px] tracking-widest uppercase font-mono-tech text-emerald-400 font-bold">TACTICAL GOAL</span>
+        <div class="text-sm font-orbitron font-extrabold text-white flex items-center gap-2 mt-0.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>DEFEND CORES</span>
+        </div>
+      </div>
+      <div class="h-8 w-[1px] bg-emerald-500/40"></div>
+      <div class="flex items-center gap-2" id="cores-container">
+        <!-- Core Badges created dynamically -->
+      </div>
+    </div>
+
+    <!-- Phase & Round Counter -->
+    <div class="cyber-panel px-6 py-2.5 pointer-events-auto border-blue-500/50 text-center glow-blue">
+      <div class="text-[10px] tracking-widest uppercase font-mono-tech text-blue-300 font-bold">TACTICAL STATUS</div>
+      <div class="text-lg font-orbitron font-black text-white tracking-wider flex items-center justify-center gap-2">
+        <span id="turn-indicator" class="text-blue-400 text-glow-blue">PLAYER ACTION</span>
+      </div>
+      <div class="text-[11px] font-mono-tech text-yellow-300 font-bold mt-0.5">
+        ROUND <span id="round-num" class="text-yellow-400">1</span> / <span id="max-rounds">5</span>
+      </div>
+    </div>
+
+    <!-- Utility Controls -->
+    <div class="flex items-center gap-2 pointer-events-auto">
+      <button id="btn-audio" class="cyber-panel px-3 py-2 text-xs font-mono-tech text-blue-300 border-blue-400/40 hover:bg-blue-500/20 active:scale-95 transition" title="Toggle Audio FX">
+        AUDIO: <span id="audio-state">ON</span>
+      </button>
+      <button id="btn-cam-reset" class="cyber-panel px-3 py-2 text-xs font-mono-tech text-blue-300 border-blue-400/40 hover:bg-blue-500/20 active:scale-95 transition">
+        CENTER CAM
+      </button>
+      <button id="btn-new-sim" class="cyber-panel px-3 py-2 text-xs font-mono-tech text-red-400 border-red-500/40 hover:bg-red-500/20 active:scale-95 transition">
+        NEW SEED
+      </button>
+    </div>
+  </header>
+
+  <!-- BOTTOM HUD: Selected Unit, Actions, Threat Warning, End Turn -->
+  <footer class="absolute bottom-3 left-3 right-3 z-30 flex flex-col md:flex-row items-end md:items-center justify-between gap-3 pointer-events-none">
+
+    <!-- Selected Unit Card -->
+    <div id="unit-card" class="cyber-panel p-4 pointer-events-auto border-blue-500/60 glow-blue w-full md:w-88 transition-all duration-300 transform opacity-0 translate-y-6">
+      <div class="flex items-start justify-between">
+        <div>
+          <div id="unit-faction" class="text-[10px] uppercase font-mono-tech text-blue-400 tracking-wider font-bold">BLUE FACTION</div>
+          <div id="unit-name" class="text-base font-orbitron font-extrabold text-white text-glow-blue">STRIKER CUBE</div>
+        </div>
+        <div id="unit-hp-box" class="flex items-center gap-1.5 bg-black/60 px-2.5 py-1 border border-blue-400/50 rounded">
+          <span class="text-xs font-mono-tech text-blue-300">HP:</span>
+          <span id="unit-hp-val" class="font-orbitron text-sm font-black text-green-400">3/3</span>
+        </div>
+      </div>
+
+      <div class="mt-2 text-xs text-slate-200 font-mono-tech border-t border-blue-500/30 pt-2 flex items-center justify-between">
+        <span>STATUS: <span id="unit-action-status" class="text-blue-300 font-bold">READY</span></span>
+        <span>MOBILITY: <span id="unit-move-val" class="text-yellow-300 font-bold">3 TILES</span></span>
+      </div>
+
+      <!-- Action Selectors -->
+      <div id="action-container" class="mt-3 grid grid-cols-2 gap-2">
+        <button id="btn-act-primary" class="cyber-btn bg-blue-600/30 border border-blue-400 text-blue-100 py-2 px-2 text-xs font-orbitron font-bold flex flex-col items-center gap-0.5 hover:bg-blue-600/50">
+          <span class="tracking-wide text-white">STRIKE / PUSH</span>
+          <span class="text-[9px] font-mono-tech text-blue-300">2 DMG + 1 KNOCKBACK</span>
+        </button>
+        <button id="btn-act-repair" class="cyber-btn bg-purple-600/30 border border-purple-400 text-purple-100 py-2 px-2 text-xs font-orbitron font-bold flex flex-col items-center gap-0.5 hover:bg-purple-600/50">
+          <span class="tracking-wide text-white">REPAIR</span>
+          <span class="text-[9px] font-mono-tech text-purple-300">+1 HP & BRACE</span>
+        </button>
+      </div>
+
+      <!-- Undo Move Step -->
+      <button id="btn-undo-move" class="mt-2.5 w-full cyber-btn bg-slate-800 border border-slate-600 text-slate-200 py-1.5 text-xs font-mono-tech hover:bg-slate-700 hidden">
+        ↩ REVERT MOVE STEP
+      </button>
+    </div>
+
+    <!-- Threat Forecast Guide -->
+    <div id="threat-warning-box" class="cyber-panel px-4 py-2.5 pointer-events-auto border-red-500/60 glow-red max-w-md hidden md:block">
+      <div class="text-[10px] font-mono-tech text-red-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+        <span class="w-2.5 h-2.5 bg-red-500 rounded-full animate-ping"></span>
+        RED FACTION INTENT FORECAST
+      </div>
+      <p id="threat-desc" class="text-xs text-slate-200 font-mono-tech mt-1 leading-snug">
+        Enemies telegraph their targeted tiles. Knock red units away or into each other to protect green Cores!
+      </p>
+    </div>
+
+    <!-- End Turn Trigger Button -->
+    <div class="flex items-center gap-2 pointer-events-auto w-full md:w-auto justify-end">
+      <button id="btn-end-turn" class="w-full md:w-60 py-3.5 px-6 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-orbitron font-black text-sm tracking-widest uppercase border border-red-400 glow-red cyber-btn transition active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-red-600/30">
+        <span>EXECUTE TURN</span>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
+      </button>
+    </div>
+  </footer>
+
+  <!-- Modal Screen for Victory/Defeat -->
+  <div id="modal-screen" class="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-500 opacity-0 pointer-events-none">
+    <div class="cyber-panel p-8 max-w-lg w-full text-center border-2 glow-blue" id="modal-card">
+      <div id="modal-tag" class="text-xs font-mono-tech text-blue-400 tracking-widest uppercase font-bold">SECTOR COMBAT TERMINATED</div>
+      <h2 id="modal-title" class="text-3xl md:text-4xl font-orbitron font-black text-white mt-1 mb-3 text-glow-blue">SECTOR DEFENDED</h2>
+      <p id="modal-desc" class="text-slate-300 font-mono-tech text-sm leading-relaxed mb-6">
+        Cores preserved against the red faction onslaught.
+      </p>
+
+      <div class="grid grid-cols-2 gap-3 mb-6 bg-black/60 p-3.5 border border-blue-500/30 text-xs font-mono-tech">
+        <div>
+          <span class="text-slate-400 block">ROUNDS COMPLETED</span>
+          <span id="modal-stat-rounds" class="text-yellow-400 text-lg font-bold">5 / 5</span>
+        </div>
+        <div>
+          <span class="text-slate-400 block">CORES INTACT</span>
+          <span id="modal-stat-cores" class="text-emerald-400 text-lg font-bold">3 / 3</span>
+        </div>
+      </div>
+
+      <button id="btn-modal-restart" class="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-orbitron font-black tracking-widest uppercase cyber-btn transition glow-blue text-sm">
+        INITIALIZE NEW BATTLEFIELD
+      </button>
+    </div>
+  </div>
+
+  <!-- ES module entry point (deferred by default, runs after DOM + blocking scripts) -->
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

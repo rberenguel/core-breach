@@ -1,0 +1,105 @@
+:root {
+  --neon-blue: #0066ff;
+  --neon-cyan: #00f0ff;
+  --neon-red: #ff0033;
+  --neon-crimson: #ff1744;
+  --neon-green: #00ff88;
+  --bg-dark: #070a14;
+  --panel-bg: rgba(9, 14, 26, 0.94);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-dark);
+  color: #f8fafc;
+  font-family: 'Rajdhani', sans-serif;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.font-mono-tech {
+  font-family: 'Share Tech Mono', monospace;
+}
+
+.font-orbitron {
+  font-family: 'Orbitron', sans-serif;
+}
+
+.scanlines {
+  background: linear-gradient(
+    rgba(18, 24, 38, 0) 50%,
+    rgba(0, 0, 0, 0.04) 50%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+}
+
+.glow-blue {
+  box-shadow: 0 0 16px rgba(0, 102, 255, 0.5), inset 0 0 10px rgba(0, 102, 255, 0.25);
+}
+.text-glow-blue {
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.9);
+}
+.glow-red {
+  box-shadow: 0 0 16px rgba(255, 0, 51, 0.5), inset 0 0 10px rgba(255, 0, 51, 0.25);
+}
+.text-glow-red {
+  text-shadow: 0 0 10px rgba(255, 0, 51, 0.9);
+}
+.glow-green {
+  box-shadow: 0 0 16px rgba(0, 255, 136, 0.5), inset 0 0 10px rgba(0, 255, 136, 0.25);
+}
+.text-glow-green {
+  text-shadow: 0 0 10px rgba(0, 255, 136, 0.9);
+}
+
+.cyber-panel {
+  background: var(--panel-bg);
+  border: 1px solid rgba(0, 102, 255, 0.35);
+  backdrop-filter: blur(10px);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+
+.cyber-btn {
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+.cyber-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 0 16px currentColor;
+}
+.cyber-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.floating-text {
+  position: absolute;
+  pointer-events: none;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  transform: translate(-50%, -50%);
+  animation: floatUp 1.2s forwards cubic-bezier(0.1, 0.8, 0.3, 1);
+  z-index: 50;
+}
+
+@keyframes floatUp {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.7);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -25px) scale(1.15);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%, -50px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -70px) scale(0.85);
+  }
+}
