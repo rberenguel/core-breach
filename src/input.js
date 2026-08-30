@@ -1,10 +1,10 @@
-import { FACTION, CELL_TYPE, UNIT_TYPES, TILE_SIZE } from './config.js';
+import { FACTION, CELL_TYPE, UNIT_TYPES, TILE_SIZE, GRID_SIZE } from './config.js';
 import { gameState, getCell, getUnitAt, isValidTile, gridToWorld } from './state.js';
 import { rng } from './rng.js';
-import { scene, camera, raycaster, mouse, groundPlane } from './scene.js';
+import { scene, camera, raycaster, mouse } from './scene.js';
 import { audio } from './audio.js';
 import { updateHUD } from './hud.js';
-import { clearHighlights, showMoveHighlights, showAttackHighlights } from './highlights.js';
+import { clearHighlights, showMoveHighlights, showAttackHighlights, computeAttackOutcome, showAttackPreviewMarkers, clearAttackPreview } from './highlights.js';
 import { spawnFloatingText, spawnFireEffect, spawnExplosionEffect, spawnLaserBeamEffect, spawnArcProjectile } from './vfx.js';
 import { moveUnitMeshSmooth, animatePunchMesh } from './animations.js';
 import { applyKnockback, damageUnit, damageCore, damageMountain, recalculateEnemyIntents, clearTelegraphs, triggerVictory, executeEnemyMovementPhase } from './combat.js';
@@ -15,6 +15,7 @@ export function sleep(ms) {
 }
 
 export function selectUnit(unit) {
+  clearAttackPreview();
   gameState.selectedUnit = unit;
   gameState.selectedAction = (!unit.hasMoved) ? 'MOVE' : 'PRIMARY';
 
@@ -30,7 +31,16 @@ export function selectUnit(unit) {
 }
 
 export function deselectUnit() {
+  clearAttackPreview();
   gameState.selectedUnit = null;
+  gameState.selectedTile = null;
+  clearHighlights();
+  updateHUD();
+}
+
+export function selectTile(tileInfo) {
+  gameState.selectedUnit = null;
+  gameState.selectedTile = tileInfo;
   clearHighlights();
   updateHUD();
 }
@@ -54,8 +64,20 @@ export function handleTileClick(gx, gz) {
     } else if (gameState.selectedAction === 'PRIMARY') {
       const actTarget = gameState.tileHighlights.find(h => h.userData.isAttackTarget && h.userData.gridX === gx && h.userData.gridZ === gz);
       if (actTarget) {
-        executePlayerAttack(gameState.selectedUnit, gx, gz, actTarget.userData.dx, actTarget.userData.dz);
+        const prev = gameState.attackPreview;
+        if (prev && prev.targetX === gx && prev.targetZ === gz) {
+          clearAttackPreview();
+          executePlayerAttack(gameState.selectedUnit, gx, gz, actTarget.userData.dx, actTarget.userData.dz);
+        } else {
+          const outcomes = computeAttackOutcome(gameState.selectedUnit, gx, gz, actTarget.userData.dx, actTarget.userData.dz);
+          showAttackPreviewMarkers(outcomes, gx, gz);
+          gameState.attackPreview = { targetX: gx, targetZ: gz, dx: actTarget.userData.dx, dz: actTarget.userData.dz, outcomes };
+          updateHUD();
+        }
         return;
+      } else {
+        clearAttackPreview();
+        updateHUD();
       }
     }
   }
@@ -63,9 +85,70 @@ export function handleTileClick(gx, gz) {
   if (clickedUnit && clickedUnit.faction === FACTION.ENEMY) {
     selectUnit(clickedUnit);
     audio.playSelect();
-  } else {
-    deselectUnit();
+    return;
   }
+
+  const cell = getCell(gx, gz);
+  if (cell) {
+    if (cell.type === CELL_TYPE.MOUNTAIN) {
+      audio.playSelect();
+      selectTile({
+        category: 'TERRAIN', name: 'MOUNTAIN',
+        hp: cell.hp, maxHp: cell.maxHp,
+        status: cell.hp > 1 ? 'INTACT' : 'DAMAGED',
+        statusClass: cell.hp > 1 ? 'text-slate-300 font-bold' : 'text-yellow-400 font-bold',
+        detail: 'IMPASSABLE',
+      });
+      return;
+    }
+    if (cell.type === CELL_TYPE.CORE) {
+      audio.playSelect();
+      selectTile({
+        category: 'STRUCTURE', name: 'CORE',
+        hp: cell.hp, maxHp: cell.maxHp,
+        status: cell.hp > 0 ? 'ONLINE' : 'OFFLINE',
+        statusClass: cell.hp > 0 ? 'text-emerald-300 font-bold' : 'text-red-400 font-bold',
+        detail: 'DEFEND',
+      });
+      return;
+    }
+    if (cell.type === CELL_TYPE.CHASM) {
+      audio.playSelect();
+      selectTile({
+        category: 'TERRAIN', name: 'CHASM',
+        hp: null, maxHp: null,
+        status: 'IMPASSABLE',
+        statusClass: 'text-slate-400 font-bold',
+        detail: 'FALL HAZARD',
+      });
+      return;
+    }
+    if (cell.type === CELL_TYPE.POOL) {
+      audio.playSelect();
+      selectTile({
+        category: 'TERRAIN', name: 'DATA POOL',
+        hp: null, maxHp: null,
+        status: 'DATA OVERLOAD',
+        statusClass: 'text-cyan-400 font-bold',
+        detail: 'CANCELS ATTACK',
+      });
+      return;
+    }
+    const spawner = gameState.spawners.find(s => s.x === gx && s.z === gz);
+    if (spawner) {
+      audio.playSelect();
+      selectTile({
+        category: 'STRUCTURE', name: 'SPAWNER',
+        hp: null, maxHp: null,
+        status: 'ACTIVE',
+        statusClass: 'text-red-400 font-bold',
+        detail: 'ENEMY SOURCE',
+      });
+      return;
+    }
+  }
+
+  deselectUnit();
 }
 
 export function handlePreciseGridClick() {
@@ -88,17 +171,17 @@ export function handlePreciseGridClick() {
     }
   }
 
-  const intersectPoint = new THREE.Vector3();
-  if (raycaster.ray.intersectPlane(groundPlane, intersectPoint)) {
-    const gx = Math.round(intersectPoint.x / TILE_SIZE);
-    const gz = Math.round(intersectPoint.z / TILE_SIZE);
-
-    if (isValidTile(gx, gz)) {
-      handleTileClick(gx, gz);
-    } else {
-      deselectUnit();
+  const tileMeshes = gameState.board.flat().filter(c => c.tileMesh).map(c => c.tileMesh);
+  const tileHits = raycaster.intersectObjects(tileMeshes, false);
+  if (tileHits.length > 0) {
+    const cell = gameState.board.flat().find(c => c.tileMesh === tileHits[0].object);
+    if (cell) {
+      handleTileClick(cell.x, cell.z);
+      return;
     }
   }
+
+  deselectUnit();
 }
 
 export function executePlayerMove(unit, destX, destZ) {
@@ -110,8 +193,16 @@ export function executePlayerMove(unit, destX, destZ) {
   audio.playMove();
 
   moveUnitMeshSmooth(unit, destX, destZ, () => {
+    const destCell = getCell(destX, destZ);
+    if (destCell && destCell.type === CELL_TYPE.POOL && unit.type !== 'FLIER') {
+      unit.dataOverload = true;
+      spawnFloatingText('DATA OVERLOAD!', unit.mesh.position, '#00ccff');
+    } else {
+      unit.dataOverload = false;
+    }
     gameState.selectedAction = 'PRIMARY';
-    showAttackHighlights(unit);
+    if (!unit.dataOverload) showAttackHighlights(unit);
+    else clearHighlights();
     updateHUD();
   });
 }
@@ -122,6 +213,7 @@ export function undoPlayerMove() {
   unit.x = origX;
   unit.z = origZ;
   unit.hasMoved = false;
+  unit.dataOverload = false;
   gameState.moveHistory = null;
   audio.playMove();
 
@@ -186,7 +278,6 @@ export function executePlayerAttack(unit, targetX, targetZ, dirX, dirZ) {
         }
       });
 
-      recalculateEnemyIntents();
     });
   } else if (unit.type === 'RAILGUN') {
     audio.playLaser();
@@ -195,20 +286,24 @@ export function executePlayerAttack(unit, targetX, targetZ, dirX, dirZ) {
     spawnLaserBeamEffect(startPos, endPos);
     spawnFireEffect(endPos.x, 0.65, endPos.z, 20);
 
-    const targetUnit = getUnitAt(targetX, targetZ);
-    const targetCell = getCell(targetX, targetZ);
-    if (targetUnit) {
-      damageUnit(targetUnit, 1);
-      applyKnockback(targetUnit, dirX, dirZ);
-    } else if (targetCell && targetCell.type === CELL_TYPE.MOUNTAIN) {
-      damageMountain(targetCell, 1);
-    } else if (targetCell && targetCell.type === CELL_TYPE.CORE) {
-      damageCore(targetCell, 1);
+    for (let r = 1; r <= GRID_SIZE; r++) {
+      const lx = unit.x + dirX * r, lz = unit.z + dirZ * r;
+      if (!isValidTile(lx, lz)) break;
+      const u = getUnitAt(lx, lz);
+      const cell = getCell(lx, lz);
+      if (u) {
+        damageUnit(u, 1);
+        applyKnockback(u, dirX, dirZ);
+      } else if (cell && cell.type === CELL_TYPE.MOUNTAIN) {
+        damageMountain(cell, 1);
+      } else if (cell && cell.type === CELL_TYPE.CORE) {
+        damageCore(cell, 1);
+      }
+      if (lx === targetX && lz === targetZ) break;
     }
   }
 
   deselectUnit();
-  recalculateEnemyIntents();
 }
 
 export function executePlayerRepair(unit) {
@@ -232,6 +327,13 @@ export async function executeEnemyPhase() {
 
   for (const enemy of enemies) {
     if (!enemy.alive || !enemy.intent) continue;
+
+    if (enemy.dataOverload) {
+      enemy.dataOverload = false;
+      spawnFloatingText('OVERLOADED — NO ATTACK', enemy.mesh.position, '#00ccff');
+      await sleep(400);
+      continue;
+    }
 
     const intent = enemy.intent;
     const targetUnit = getUnitAt(intent.targetX, intent.targetZ);
@@ -296,6 +398,10 @@ export async function executeEnemyPhase() {
     if (u.alive && u.faction === FACTION.PLAYER) {
       u.hasMoved = false;
       u.hasActed = false;
+      const cell = getCell(u.x, u.z);
+      if (!cell || cell.type !== CELL_TYPE.POOL || u.type === 'FLIER') {
+        u.dataOverload = false;
+      }
     }
   });
 

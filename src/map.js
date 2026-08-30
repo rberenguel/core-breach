@@ -2,7 +2,7 @@ import { GRID_SIZE, TILE_SIZE, CELL_TYPE, UNIT_TYPES, FACTION } from './config.j
 import { gameState, getCell, getUnitAt, gridToWorld, isValidTile, nextUnitId, resetUnitIdCounter } from './state.js';
 import { rng } from './rng.js';
 import { scene } from './scene.js';
-import { Materials, createQuantumCoreMesh, createMountainMesh, createRubbleMesh, createUnitMeshByType } from './materials.js';
+import { Materials, createQuantumCoreMesh, createMountainMesh, createRubbleMesh, createUnitMeshByType, createPoolMesh } from './materials.js';
 import { audio } from './audio.js';
 import { recalculateEnemyIntents, clearTelegraphs } from './combat.js';
 import { updateHUD } from './hud.js';
@@ -96,6 +96,7 @@ export function generateProceduralLevel() {
   gameState.units = [];
   gameState.cores = [];
   gameState.spawners = [];
+  gameState.pools = [];
   gameState.selectedUnit = null;
   gameState.moveHistory = null;
   gameState.round = 1;
@@ -120,9 +121,10 @@ export function generateProceduralLevel() {
     }
   }
 
-  // 2. Mountains (4 Obstacles)
+  // 2. Mountains (2–5 obstacles)
+  const mountainTarget = 2 + Math.floor(rng.random() * 4);
   let mountainsPlaced = 0;
-  while (mountainsPlaced < 4) {
+  while (mountainsPlaced < mountainTarget) {
     const mx = Math.floor(rng.random() * GRID_SIZE);
     const mz = 1 + Math.floor(rng.random() * 5);
     const cell = getCell(mx, mz);
@@ -131,6 +133,19 @@ export function generateProceduralLevel() {
       cell.hp = 2;
       cell.maxHp = 2;
       mountainsPlaced++;
+    }
+  }
+
+  // 2.6. Pools (1–3 static data pools)
+  const poolTarget = 1 + Math.floor(rng.random() * 3);
+  let poolsPlaced = 0;
+  while (poolsPlaced < poolTarget) {
+    const px = Math.floor(rng.random() * GRID_SIZE);
+    const pz = 1 + Math.floor(rng.random() * 5);
+    const cell = getCell(px, pz);
+    if (cell.type === CELL_TYPE.EMPTY) {
+      cell.type = CELL_TYPE.POOL;
+      poolsPlaced++;
     }
   }
 
@@ -183,18 +198,29 @@ export function generateProceduralLevel() {
       const worldPos = gridToWorld(x, z);
 
       const tileGeo = new THREE.BoxGeometry(TILE_SIZE * 0.96, 0.32, TILE_SIZE * 0.96);
-      const mat = (cell.type === CELL_TYPE.CHASM) ? Materials.tileChasm : Materials.tileBase.clone();
+      let mat;
+      if (cell.type === CELL_TYPE.CHASM) mat = Materials.tileChasm;
+      else if (cell.type === CELL_TYPE.POOL) mat = Materials.tilePool.clone();
+      else mat = Materials.tileBase.clone();
 
+      const tileY = cell.type === CELL_TYPE.CHASM ? -0.8 : cell.type === CELL_TYPE.POOL ? -0.36 : -0.16;
       const tileMesh = new THREE.Mesh(tileGeo, mat);
-      tileMesh.position.set(worldPos.x, (cell.type === CELL_TYPE.CHASM) ? -0.8 : -0.16, worldPos.z);
+      tileMesh.position.set(worldPos.x, tileY, worldPos.z);
       tileMesh.receiveShadow = (cell.type !== CELL_TYPE.CHASM);
       gameState.boardGroup.add(tileMesh);
       cell.tileMesh = tileMesh;
 
-      if (cell.type !== CELL_TYPE.CHASM) {
+      if (cell.type !== CELL_TYPE.CHASM && cell.type !== CELL_TYPE.POOL) {
         const edges = new THREE.EdgesGeometry(tileGeo);
         const line = new THREE.LineSegments(edges, Materials.tileBorder);
         tileMesh.add(line);
+      }
+
+      if (cell.type === CELL_TYPE.POOL) {
+        const poolMesh = createPoolMesh(worldPos.x, worldPos.z);
+        gameState.boardGroup.add(poolMesh);
+        cell.featureMesh = poolMesh;
+        gameState.pools.push({ cell, mesh: poolMesh });
       }
 
       if (cell.type === CELL_TYPE.CORE) {

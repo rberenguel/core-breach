@@ -33,6 +33,19 @@ export function applyKnockback(targetUnit, pushDx, pushDz) {
     return;
   }
 
+  if (destCell.type === CELL_TYPE.POOL && targetUnit.type !== 'FLIER') {
+    targetUnit.x = newX;
+    targetUnit.z = newZ;
+    moveUnitMeshSmooth(targetUnit, newX, newZ, () => {
+      targetUnit.dataOverload = true;
+      spawnFloatingText('DATA OVERLOAD!', targetUnit.mesh.position, '#00ccff');
+      if (targetUnit.intent) {
+        clearEnemyTelegraph(targetUnit);
+      }
+    });
+    return;
+  }
+
   if (destUnit || destCell.type === CELL_TYPE.MOUNTAIN || destCell.type === CELL_TYPE.CORE) {
     spawnFloatingText('COLLISION! -1', targetUnit.mesh.position, '#ffaa00');
     spawnFireEffect(targetUnit.mesh.position.x, 0.5, targetUnit.mesh.position.z, 12);
@@ -53,6 +66,13 @@ export function applyKnockback(targetUnit, pushDx, pushDz) {
   targetUnit.x = newX;
   targetUnit.z = newZ;
   moveUnitMeshSmooth(targetUnit, newX, newZ);
+
+  if (targetUnit.intent) {
+    const updatedIntent = { ...targetUnit.intent, targetX: targetUnit.intent.targetX + pushDx, targetZ: targetUnit.intent.targetZ + pushDz };
+    clearEnemyTelegraph(targetUnit);
+    targetUnit.intent = updatedIntent;
+    createTelegraphVisual(targetUnit);
+  }
 }
 
 export function damageUnit(unit, amount) {
@@ -66,6 +86,7 @@ export function damageUnit(unit, amount) {
   if (unit.hp <= 0) {
     unit.alive = false;
     unit.hp = 0;
+    clearEnemyTelegraph(unit);
     spawnFloatingText('DESTROYED', unit.mesh.position, '#ff0033');
     spawnFireEffect(unit.mesh.position.x, 0.6, unit.mesh.position.z, 40);
     audio.playExplosion();
@@ -150,9 +171,22 @@ export function damageMountain(cell, amount) {
 
   // Rebuild remaining group cells
   const remaining = oldGroup.filter(c => c !== cell);
+  const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
   for (const subgroup of findSubgroups(remaining)) {
+    const subgroupKeys = new Set(subgroup.map(c => `${c.x},${c.z}`));
+    const seen = new Set();
+    const neighborPositions = [];
+    for (const c of subgroup) {
+      for (const [dx, dz] of dirs) {
+        const nb = getCell(c.x + dx, c.z + dz);
+        if (nb && nb.type === CELL_TYPE.MOUNTAIN && !subgroupKeys.has(`${nb.x},${nb.z}`)) {
+          const key = `${nb.x},${nb.z}`;
+          if (!seen.has(key)) { seen.add(key); const w = gridToWorld(nb.x, nb.z); neighborPositions.push({ wx: w.x, wz: w.z }); }
+        }
+      }
+    }
     const cellInfos = subgroup.map(c => { const w = gridToWorld(c.x, c.z); return { wx: w.x, wz: w.z }; });
-    const mesh = createMountainMesh(cellInfos, 1.0);
+    const mesh = createMountainMesh(cellInfos, 1.0, neighborPositions);
     gameState.boardGroup.add(mesh);
     for (const c of subgroup) { c.mountainGroup = subgroup; c.featureMesh = mesh; }
   }
@@ -166,7 +200,11 @@ export function damageMountain(cell, amount) {
     cell.featureMesh = rubble;
   } else {
     cell.mountainGroup = [cell];
-    const mesh = createMountainMesh([{ wx: wPos.x, wz: wPos.z }], 0.5);
+    const neighborPositions = dirs
+      .map(([dx,dz]) => getCell(cell.x + dx, cell.z + dz))
+      .filter(c => c && c.type === CELL_TYPE.MOUNTAIN)
+      .map(c => { const w = gridToWorld(c.x, c.z); return { wx: w.x, wz: w.z }; });
+    const mesh = createMountainMesh([{ wx: wPos.x, wz: wPos.z }], 0.75, neighborPositions);
     gameState.boardGroup.add(mesh);
     cell.featureMesh = mesh;
   }
@@ -179,6 +217,19 @@ function sleep(ms) {
 export function clearTelegraphs() {
   gameState.telegraphMarkers.forEach(m => scene.remove(m));
   gameState.telegraphMarkers = [];
+}
+
+export function clearEnemyTelegraph(unit) {
+  const remaining = [];
+  for (const m of gameState.telegraphMarkers) {
+    if (m.userData.unitId === unit.id) {
+      scene.remove(m);
+    } else {
+      remaining.push(m);
+    }
+  }
+  gameState.telegraphMarkers = remaining;
+  unit.intent = null;
 }
 
 export function createTelegraphVisual(enemy) {
@@ -196,6 +247,7 @@ export function createTelegraphVisual(enemy) {
   });
   const reticle = new THREE.Mesh(reticleGeo, reticleMat);
   reticle.position.set(targetPos.x, 0.08, targetPos.z);
+  reticle.userData.unitId = enemy.id;
   scene.add(reticle);
   gameState.telegraphMarkers.push(reticle);
 
@@ -215,11 +267,13 @@ export function createTelegraphVisual(enemy) {
       const arcGeo = new THREE.BufferGeometry().setFromPoints(points);
       const arcMat = new THREE.LineBasicMaterial({ color: 0xff0033, transparent: true, opacity: 0.75 });
       const arc = new THREE.Line(arcGeo, arcMat);
+      arc.userData.unitId = enemy.id;
       scene.add(arc);
       gameState.telegraphMarkers.push(arc);
     } else {
       const dir = end3.clone().sub(start3).normalize();
       const arrow = new THREE.ArrowHelper(dir, start3, dist * 0.78, 0xff0033, 0.6, 0.4);
+      arrow.userData.unitId = enemy.id;
       scene.add(arrow);
       gameState.telegraphMarkers.push(arrow);
     }
@@ -242,7 +296,7 @@ export function getReachableTiles(unit) {
       const key = `${nx},${nz}`;
       if (visited.has(key) || !isValidTile(nx, nz)) continue;
       const cell = getCell(nx, nz);
-      if (cell.type !== CELL_TYPE.EMPTY) continue;
+      if (cell.type !== CELL_TYPE.EMPTY && cell.type !== CELL_TYPE.POOL) continue;
       if (getUnitAt(nx, nz)) continue;
       visited.add(key);
       queue.push({ x: nx, z: nz, steps: steps + 1 });
@@ -388,6 +442,17 @@ export async function executeEnemyMovementPhase() {
       enemy.z = action.destZ;
       await new Promise(resolve => moveUnitMeshSmooth(enemy, action.destX, action.destZ, resolve));
       await sleep(100);
+    }
+
+    const landCell = getCell(enemy.x, enemy.z);
+    if (landCell && landCell.type === CELL_TYPE.POOL && enemy.type !== 'FLIER') {
+      enemy.dataOverload = true;
+      spawnFloatingText('DATA OVERLOAD!', enemy.mesh.position, '#00ccff');
+      clearEnemyTelegraph(enemy);
+      await sleep(200);
+      continue;
+    } else {
+      enemy.dataOverload = false;
     }
 
     enemy.intent = {

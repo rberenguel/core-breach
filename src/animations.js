@@ -38,11 +38,10 @@ export function animatePunchMesh(mesh) {
 
 export function flashMeshColor(mesh, hexColor) {
   mesh.traverse(child => {
-    if (child.isMesh && child.material) {
-      const orig = child.material.emissive ? child.material.emissive.getHex() : 0;
-      if (child.material.emissive) child.material.emissive.setHex(hexColor);
+    if (child.isMesh && child.material && child.material.emissive) {
+      child.material.emissive.setHex(hexColor);
       setTimeout(() => {
-        if (child.material && child.material.emissive) child.material.emissive.setHex(orig);
+        if (child.material && child.material.emissive) child.material.emissive.setHex(0);
       }, 150);
     }
   });

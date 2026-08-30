@@ -7,6 +7,7 @@ export const Materials = {
     metalness: 0.05
   }),
   tileChasm: new THREE.MeshBasicMaterial({ color: 0x020407 }),
+  tilePool: new THREE.MeshBasicMaterial({ color: 0x050508 }),
   tileBorder: new THREE.LineBasicMaterial({
     color: 0x00ccff,
     linewidth: 2,
@@ -89,6 +90,30 @@ export function createQuantumCoreMesh() {
   return group;
 }
 
+export function createPoolMesh(wx, wz) {
+  const TS = 2.0;
+  const RES = 16;
+  const canvas = document.createElement('canvas');
+  canvas.width = RES;
+  canvas.height = RES;
+  const ctx = canvas.getContext('2d');
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+
+  const geo = new THREE.PlaneGeometry(TS * 0.92, TS * 0.92);
+  geo.rotateX(-Math.PI / 2);
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: texture }));
+  mesh.position.set(wx, -0.19, wz);
+
+  mesh.userData.staticTexture = texture;
+  mesh.userData.staticCtx = ctx;
+  mesh.userData.staticCanvas = canvas;
+  return mesh;
+}
+
+
 function positionHash(wx, wz) {
   return Math.abs((Math.sin(wx * 127.1 + wz * 311.7) * 43758.5453) % 1);
 }
@@ -101,11 +126,14 @@ function dirFalloff(n, adjNeg, adjPos) {
 }
 
 // cellInfos: [{wx, wz}] world positions. Bakes positions into geometry; mesh sits at (0,0,0).
-export function createMountainMesh(cellInfos, heightScale = 1.0) {
+export function createMountainMesh(cellInfos, heightScale = 1.0, neighborPositions = []) {
   const TS = 2.0;
   const segs = 8;
   const half = TS / 2;
-  const posSet = new Set(cellInfos.map(c => `${c.wx},${c.wz}`));
+  const posSet = new Set([
+    ...cellInfos.map(c => `${c.wx},${c.wz}`),
+    ...neighborPositions.map(c => `${c.wx},${c.wz}`),
+  ]);
 
   const geoList = [];
   for (const { wx, wz } of cellInfos) {
@@ -187,7 +215,7 @@ export function createRubbleMesh(wx, wz) {
 export function createStrikerMesh() {
   const group = new THREE.Group();
   const cubeGeo = new THREE.BoxGeometry(0.85, 0.85, 0.85);
-  const cube = new THREE.Mesh(cubeGeo, Materials.playerBlue);
+  const cube = new THREE.Mesh(cubeGeo, Materials.playerBlue.clone());
   cube.position.y = 0.43;
   cube.castShadow = true;
   group.add(cube);
@@ -196,9 +224,10 @@ export function createStrikerMesh() {
 
 export function createArtilleryMesh() {
   const group = new THREE.Group();
+  const mat = Materials.playerBlue.clone();
 
   const baseGeo = new THREE.BoxGeometry(0.8, 0.58, 0.8);
-  const base = new THREE.Mesh(baseGeo, Materials.playerBlue);
+  const base = new THREE.Mesh(baseGeo, mat);
   base.position.y = 0.29;
   base.castShadow = true;
   group.add(base);
@@ -209,7 +238,7 @@ export function createArtilleryMesh() {
     [-0.29, 0.29], [0.29, 0.29]
   ];
   offsets.forEach(([cx, cz]) => {
-    const post = new THREE.Mesh(postGeo, Materials.playerBlue);
+    const post = new THREE.Mesh(postGeo, mat);
     post.position.set(cx, 0.71, cz);
     post.castShadow = true;
     group.add(post);
@@ -263,7 +292,7 @@ export function createScarabMesh() {
   geo.rotateX(Math.PI / 2);
   geo.center();
 
-  const wedge = new THREE.Mesh(geo, Materials.enemyRed);
+  const wedge = new THREE.Mesh(geo, Materials.enemyRed.clone());
   wedge.position.y = 0.45;
   wedge.castShadow = true;
   group.add(wedge);
@@ -275,7 +304,7 @@ export function createHornetMesh() {
   const group = new THREE.Group();
   const geo = new THREE.OctahedronGeometry(0.6, 0);
 
-  const diamond = new THREE.Mesh(geo, Materials.enemyRed);
+  const diamond = new THREE.Mesh(geo, Materials.enemyRed.clone());
   diamond.position.y = 1.0;
   diamond.castShadow = true;
   group.add(diamond);
@@ -288,7 +317,7 @@ export function createSpitterMesh() {
   const group = new THREE.Group();
   const geo = new THREE.CylinderGeometry(0.6, 0.5, 0.35, 6);
 
-  const puck = new THREE.Mesh(geo, Materials.enemyRed);
+  const puck = new THREE.Mesh(geo, Materials.enemyRed.clone());
   puck.position.y = 0.35;
   puck.castShadow = true;
   group.add(puck);

@@ -11,7 +11,8 @@ export const CELL_TYPE = {
   EMPTY: 0,
   MOUNTAIN: 1,
   CORE: 2,
-  CHASM: 3
+  CHASM: 3,
+  POOL: 4
 };
 
 export const UNIT_TYPES = {

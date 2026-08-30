@@ -2,7 +2,7 @@ import { GRID_SIZE, TILE_SIZE } from './config.js';
 
 export const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a101f);
-scene.fog = new THREE.FogExp2(0x0a101f, 0.015);
+scene.fog = new THREE.FogExp2(0x0a101f, 0.004);
 
 const aspect = window.innerWidth / window.innerHeight;
 export const camera = new THREE.PerspectiveCamera(28, aspect, 1, 1000);
@@ -26,8 +26,7 @@ export function resetCamera() {
   camState.radius = 45;
   camState.theta = Math.PI / 4;
   camState.phi = Math.PI / 3.8;
-  camera.position.set(camTarget.x + 28, 32, camTarget.z + 28);
-  camera.lookAt(camTarget.x, 0, camTarget.z);
+  updateCameraFromAngles();
 }
 
 resetCamera();
