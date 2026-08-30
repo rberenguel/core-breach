@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>CORE BREACH</title>
   <link rel="icon" href="./favicon.ico">
   <link rel="manifest" href="./manifest.json">
@@ -66,10 +66,10 @@
   </header>
 
   <!-- BOTTOM HUD -->
-  <footer class="absolute bottom-3 left-3 right-3 z-30 flex flex-row items-end justify-between gap-3 pointer-events-none">
+  <footer id="game-footer" class="absolute left-3 right-3 z-30 flex flex-row items-end gap-3 pointer-events-none">
 
     <!-- Selected Unit Card -->
-    <div id="unit-card" class="cyber-panel p-4 pointer-events-auto border-blue-500/60 glow-blue w-full transition-all duration-300 transform opacity-0 translate-y-6">
+    <div id="unit-card" class="cyber-panel p-4 pointer-events-none border-blue-500/60 glow-blue flex-1 hidden">
       <div class="flex items-start justify-between">
         <div>
           <div id="unit-faction" class="text-[10px] uppercase font-mono-tech text-blue-400 tracking-wider font-bold">BLUE FACTION</div>
@@ -105,8 +105,8 @@
     </div>
 
     <!-- End Turn Trigger Button -->
-    <div class="flex items-center gap-2 pointer-events-auto">
-      <button id="btn-end-turn" class="w-10 h-10 md:w-14 md:h-14 bg-gradient-to-br from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white border border-red-400 glow-red cyber-btn transition active:scale-95 flex items-center justify-center shadow-lg shadow-red-600/30" title="Execute Turn (Space)">
+    <div class="flex items-center gap-2 pointer-events-auto shrink-0 ml-auto">
+      <button id="btn-end-turn" class="w-14 h-14 bg-gradient-to-br from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white border border-red-400 glow-red cyber-btn transition active:scale-95 flex items-center justify-center shadow-lg shadow-red-600/30" title="Execute Turn (Space)">
         <i class="ph-light ph-play" style="font-size:1.4em"></i>
       </button>
     </div>

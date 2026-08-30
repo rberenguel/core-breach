@@ -21,9 +21,12 @@ export function updateHUD() {
   const card = document.getElementById('unit-card');
   const unit = gameState.selectedUnit;
 
+  const knob = document.getElementById('pan-knob');
+
   if (unit && unit.alive) {
     gameState.selectedTile = null;
-    card.classList.remove('opacity-0', 'translate-y-6', 'pointer-events-none');
+    card.classList.remove('hidden', 'pointer-events-none');
+    if (knob) knob.classList.add('hidden');
 
     document.getElementById('unit-faction').innerText = (unit.faction === FACTION.PLAYER) ? 'BLUE FACTION' : 'RED SWARM';
     document.getElementById('unit-faction').className = (unit.faction === FACTION.PLAYER)
@@ -80,7 +83,8 @@ export function updateHUD() {
 
   } else if (gameState.selectedTile) {
     const tile = gameState.selectedTile;
-    card.classList.remove('opacity-0', 'translate-y-6', 'pointer-events-none');
+    card.classList.remove('hidden', 'pointer-events-none');
+    if (knob) knob.classList.add('hidden');
 
     document.getElementById('unit-faction').innerText = tile.category;
     document.getElementById('unit-faction').className = 'text-[10px] uppercase font-mono-tech text-emerald-400 tracking-wider font-bold';
@@ -95,7 +99,8 @@ export function updateHUD() {
     document.getElementById('action-container').classList.add('hidden');
     document.getElementById('btn-undo-move').classList.add('hidden');
   } else {
-    card.classList.add('opacity-0', 'translate-y-6');
+    card.classList.add('hidden', 'pointer-events-none');
+    if (knob) knob.classList.remove('hidden');
   }
 
   const btnEndTurn = document.getElementById('btn-end-turn');

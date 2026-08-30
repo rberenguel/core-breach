@@ -110,6 +110,67 @@ container.addEventListener('wheel', (e) => {
   updateCameraFromAngles();
 }, { passive: true });
 
+// --- Pinch to zoom (touch) ---
+let lastPinchDist = null;
+
+container.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 2) {
+    cancelDrag();
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    lastPinchDist = Math.hypot(dx, dy);
+    e.preventDefault();
+  }
+}, { passive: false });
+
+container.addEventListener('touchmove', (e) => {
+  if (e.touches.length === 2 && lastPinchDist !== null) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.hypot(dx, dy);
+    camState.radius = Math.max(22, Math.min(65, camState.radius + (lastPinchDist - dist) * 0.12));
+    updateCameraFromAngles();
+    lastPinchDist = dist;
+    e.preventDefault();
+  }
+}, { passive: false });
+
+container.addEventListener('touchend', () => { lastPinchDist = null; }, { passive: true });
+
+// --- Pan knob (mobile only) ---
+if (navigator.maxTouchPoints > 0) {
+  const knob = document.createElement('div');
+  knob.id = 'pan-knob';
+  knob.className = 'pan-knob';
+  knob.textContent = '✥';
+  const footer = document.getElementById('game-footer');
+  footer.insertBefore(knob, footer.firstChild);
+
+  let knobActive = false;
+  let knobPrev = { x: 0, y: 0 };
+
+  knob.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    knob.setPointerCapture(e.pointerId);
+    knobActive = true;
+    knobPrev = { x: e.clientX, y: e.clientY };
+  });
+
+  knob.addEventListener('pointermove', (e) => {
+    if (!knobActive) return;
+    const dx = e.clientX - knobPrev.x;
+    const dy = e.clientY - knobPrev.y;
+    const spd = camState.radius * 0.002;
+    camTarget.x += dx * spd * (-Math.sin(camState.theta)) + dy * spd * (-Math.cos(camState.theta));
+    camTarget.z += dx * spd * Math.cos(camState.theta) + dy * spd * (-Math.sin(camState.theta));
+    updateCameraFromAngles();
+    knobPrev = { x: e.clientX, y: e.clientY };
+  });
+
+  knob.addEventListener('pointerup', () => { knobActive = false; });
+  knob.addEventListener('pointercancel', () => { knobActive = false; });
+}
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -304,7 +365,40 @@ function newSeed() {
   generateProceduralLevel();
 }
 
+const isMobile = () => 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+const needsStandalone = () => {
+  const standaloneiOS = window.navigator.standalone === true;
+  const standaloneAndroid = window.matchMedia('(display-mode: standalone)').matches;
+  return isMobile() && !standaloneiOS && !standaloneAndroid;
+};
+
 window.onload = function () {
+  if (needsStandalone()) {
+    const panel = document.querySelector('#startup-modal .cyber-panel');
+    panel.innerHTML =
+      '<div class="flex items-center gap-4 mb-5">' +
+        '<img src="./icon.jpeg" alt="" class="w-12 h-12 shrink-0 object-cover">' +
+        '<div>' +
+          '<h1 class="text-2xl font-orbitron font-black text-white text-glow-blue leading-tight">CORE BREACH</h1>' +
+          '<div class="text-xs font-mono-tech text-yellow-400 tracking-widest mt-0.5">INSTALL REQUIRED</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="mb-5 bg-black/40 border border-yellow-500/50 p-4">' +
+        '<div class="text-[10px] font-mono-tech text-yellow-400 uppercase tracking-widest font-bold mb-2">Play as installed app</div>' +
+        '<p class="text-slate-300 font-mono-tech text-sm leading-relaxed">This game works best when installed. On iOS: tap <strong class="text-white">Share → Add to Home Screen</strong>. On Android: tap the browser menu and choose <strong class="text-white">Install App</strong>.</p>' +
+      '</div>' +
+      '<p class="text-slate-500 font-mono-tech text-xs text-center">Open in Safari (iOS) or Chrome (Android) if the install option is missing.</p>' +
+      '<button id="btn-skip-install" class="w-full py-2 mt-3 border border-slate-600 text-slate-500 text-xs">play anyway</button>';
+
+    document.getElementById('btn-skip-install').addEventListener('click', () => {
+      document.getElementById('startup-modal').style.display = 'none';
+      applySeed(parseSeedFromUrl());
+      generateProceduralLevel();
+      animate();
+    });
+    return;
+  }
+
   applySeed(parseSeedFromUrl());
   generateProceduralLevel();
   animate();
