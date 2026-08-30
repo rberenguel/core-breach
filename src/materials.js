@@ -1,3 +1,5 @@
+import { rng } from './rng.js';
+
 export const Materials = {
   tileBase: new THREE.MeshStandardMaterial({
     color: 0x0e0b1a,
@@ -84,18 +86,18 @@ export function createQuantumCoreMesh() {
 
 export function createMountainMesh() {
   const group = new THREE.Group();
-  const count = 3 + Math.floor(Math.random() * 2);
+  const count = 3 + Math.floor(rng.random() * 2);
   for (let i = 0; i < count; i++) {
-    const height = 1.3 + Math.random() * 0.9;
-    const radius = 0.4 + Math.random() * 0.2;
+    const height = 1.3 + rng.random() * 0.9;
+    const radius = 0.4 + rng.random() * 0.2;
     const geo = new THREE.ConeGeometry(radius, height, 5);
     const mesh = new THREE.Mesh(geo, Materials.mountain);
     mesh.position.set(
-      (Math.random() - 0.5) * 0.5,
+      (rng.random() - 0.5) * 0.5,
       height / 2,
-      (Math.random() - 0.5) * 0.5
+      (rng.random() - 0.5) * 0.5
     );
-    mesh.rotation.y = Math.random() * Math.PI;
+    mesh.rotation.y = rng.random() * Math.PI;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     group.add(mesh);
@@ -146,28 +148,38 @@ export function createArtilleryMesh() {
 export function createLaserTankMesh() {
   const group = new THREE.Group();
 
-  // 4-sided prism: trapezoidal cross-section (wider at back, narrowing toward enemy)
-  // After rotateX(π/2): shape XY maps to XZ, extrusion Z maps to Y (height).
-  // Lying flat on its bottom face, pointing toward +Z (enemy direction).
-  const shape = new THREE.Shape();
-  shape.moveTo(-0.42, -0.58);  // back-left (away from enemy, wider)
-  shape.lineTo(0.42, -0.58);   // back-right
-  shape.lineTo(0.26, 0.58);    // front-right (toward enemy, narrower)
-  shape.lineTo(-0.26, 0.58);   // front-left
-  shape.closePath();
+  // Isosceles tetrahedron: ground face is a long isosceles triangle (apex forward = fire dir).
+  // The short back edge rises into a near-vertical fin, slightly leaning toward the barycenter.
+  // v0: front apex on ground (pointing toward enemy after π rotation)
+  // v1: back-left on ground   } short edge — the "thin side" of the isosceles triangle
+  // v2: back-right on ground  }
+  // v3: top of back fin — nearly perpendicular above v1-v2, tilted ~11° toward barycenter
+  const verts = new Float32Array([
+     0.00, 0.00,  0.85,   // v0 front apex (ground)
+    -0.35, 0.00, -0.55,   // v1 back-left (ground)
+     0.35, 0.00, -0.55,   // v2 back-right (ground)
+     0.00, 0.90, -0.38,   // v3 top fin (above back edge, leaning forward ~11°)
+  ]);
 
-  const extrudeSettings = { steps: 1, depth: 0.48, bevelEnabled: false };
-  const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-  geo.rotateX(Math.PI / 2);
-  geo.center();
+  // Face winding CCW from outside for correct outward normals
+  const idx = new Uint16Array([
+    0, 1, 2,  // bottom (ground, normal -Y)
+    0, 3, 1,  // left sweep face
+    0, 2, 3,  // right sweep face
+    1, 3, 2,  // back fin face (near-vertical)
+  ]);
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+  geo.setIndex(new THREE.BufferAttribute(idx, 1));
   geo.computeVertexNormals();
 
   const mat = Materials.playerBlue.clone();
   mat.flatShading = true;
-  const prism = new THREE.Mesh(geo, mat);
-  prism.position.y = 0.24;
-  prism.castShadow = true;
-  group.add(prism);
+
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = true;
+  group.add(mesh);
 
   return group;
 }

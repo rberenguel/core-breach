@@ -1,5 +1,6 @@
 import { GRID_SIZE, TILE_SIZE, CELL_TYPE, UNIT_TYPES, FACTION } from './config.js';
-import { gameState, getCell, getUnitAt, gridToWorld, isValidTile } from './state.js';
+import { gameState, getCell, getUnitAt, gridToWorld, isValidTile, nextUnitId, resetUnitIdCounter } from './state.js';
+import { rng } from './rng.js';
 import { scene } from './scene.js';
 import { Materials, createQuantumCoreMesh, createMountainMesh, createUnitMeshByType } from './materials.js';
 import { audio } from './audio.js';
@@ -40,7 +41,7 @@ export function spawnUnit(template, gx, gz, rotY = 0) {
   scene.add(mesh);
 
   const unit = {
-    id: 'u_' + Math.random().toString(36).substr(2, 6),
+    id: nextUnitId(),
     type: template.id,
     name: template.name,
     faction: template.faction,
@@ -68,8 +69,8 @@ export function addSpawner() {
   let attempts = 0;
   while (attempts < 30) {
     attempts++;
-    const sx = Math.floor(Math.random() * GRID_SIZE);
-    const sz = 1 + Math.floor(Math.random() * 4);
+    const sx = Math.floor(rng.random() * GRID_SIZE);
+    const sz = 1 + Math.floor(rng.random() * 4);
     const cell = getCell(sx, sz);
     if (cell.type === CELL_TYPE.EMPTY && !getUnitAt(sx, sz) && !gameState.spawners.find(s => s.x === sx && s.z === sz)) {
       const worldPos = gridToWorld(sx, sz);
@@ -86,6 +87,8 @@ export function addSpawner() {
 }
 
 export function generateProceduralLevel() {
+  rng.init(gameState.seed);
+  resetUnitIdCounter();
   initEmptyBoard();
 
   gameState.units.forEach(u => { if (u.mesh) scene.remove(u.mesh); });
@@ -104,8 +107,8 @@ export function generateProceduralLevel() {
   // 1. Procedural Green Cores (3 Protected Cores)
   let coresPlaced = 0;
   while (coresPlaced < 3) {
-    const cx = 1 + Math.floor(Math.random() * 6);
-    const cz = 3 + Math.floor(Math.random() * 3);
+    const cx = 1 + Math.floor(rng.random() * 6);
+    const cz = 3 + Math.floor(rng.random() * 3);
     const cell = getCell(cx, cz);
     if (cell.type === CELL_TYPE.EMPTY) {
       cell.type = CELL_TYPE.CORE;
@@ -120,8 +123,8 @@ export function generateProceduralLevel() {
   // 2. Mountains (4 Obstacles)
   let mountainsPlaced = 0;
   while (mountainsPlaced < 4) {
-    const mx = Math.floor(Math.random() * GRID_SIZE);
-    const mz = 1 + Math.floor(Math.random() * 5);
+    const mx = Math.floor(rng.random() * GRID_SIZE);
+    const mz = 1 + Math.floor(rng.random() * 5);
     const cell = getCell(mx, mz);
     if (cell.type === CELL_TYPE.EMPTY) {
       cell.type = CELL_TYPE.MOUNTAIN;
@@ -134,8 +137,8 @@ export function generateProceduralLevel() {
   // 3. Chasms (2 gaps)
   let chasmsPlaced = 0;
   while (chasmsPlaced < 2) {
-    const cx = Math.floor(Math.random() * GRID_SIZE);
-    const cz = 2 + Math.floor(Math.random() * 3);
+    const cx = Math.floor(rng.random() * GRID_SIZE);
+    const cz = 2 + Math.floor(rng.random() * 3);
     const cell = getCell(cx, cz);
     if (cell.type === CELL_TYPE.EMPTY) {
       cell.type = CELL_TYPE.CHASM;
@@ -189,8 +192,8 @@ export function generateProceduralLevel() {
   const enemyConfigs = [UNIT_TYPES.SCARAB, UNIT_TYPES.HORNET, UNIT_TYPES.SPITTER];
   let enemiesSpawned = 0;
   while (enemiesSpawned < 3) {
-    const ex = Math.floor(Math.random() * GRID_SIZE);
-    const ez = Math.floor(Math.random() * 3);
+    const ex = Math.floor(rng.random() * GRID_SIZE);
+    const ez = Math.floor(rng.random() * 3);
     const cell = getCell(ex, ez);
     if (cell.type === CELL_TYPE.EMPTY && !getUnitAt(ex, ez)) {
       spawnUnit(enemyConfigs[enemiesSpawned], ex, ez, Math.PI);

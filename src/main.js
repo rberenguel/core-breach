@@ -2,6 +2,7 @@ import { scene, camera, renderer, camState, updateCameraFromAngles, resetCamera,
 import { audio } from './audio.js';
 import { gameState } from './state.js';
 import { generateProceduralLevel } from './map.js';
+import { rng } from './rng.js';
 import { handlePreciseGridClick, executeEnemyPhase, undoPlayerMove, executePlayerRepair } from './input.js';
 import { showAttackHighlights } from './highlights.js';
 import { updateParticles } from './vfx.js';
@@ -86,7 +87,7 @@ document.getElementById('btn-cam-reset').addEventListener('click', () => {
 });
 
 document.getElementById('btn-new-sim').addEventListener('click', () => {
-  generateProceduralLevel();
+  newSeed();
 });
 
 document.getElementById('btn-modal-restart').addEventListener('click', () => {
@@ -146,7 +147,31 @@ function animate() {
   renderer.render(scene, camera);
 }
 
+function parseSeedFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get('lvl');
+  if (raw !== null) {
+    const n = parseInt(raw, 10);
+    if (!isNaN(n)) return n >>> 0;
+  }
+  return (Math.random() * 0xFFFFFFFF) >>> 0;
+}
+
+function applySeed(seed) {
+  gameState.seed = seed;
+  document.getElementById('seed-display').innerText = seed;
+  const url = new URL(window.location.href);
+  url.searchParams.set('lvl', seed);
+  history.replaceState(null, '', url.toString());
+}
+
+function newSeed() {
+  applySeed((Math.random() * 0xFFFFFFFF) >>> 0);
+  generateProceduralLevel();
+}
+
 window.onload = function () {
+  applySeed(parseSeedFromUrl());
   generateProceduralLevel();
   animate();
 };

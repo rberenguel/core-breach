@@ -39,31 +39,44 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-const hemiLight = new THREE.HemisphereLight(0x8bc34a, 0x1a237e, 1.8);
+// Low hemisphere — just enough to tint the ground bounce, not flood everything
+const hemiLight = new THREE.HemisphereLight(0x6699cc, 0x111122, 0.55);
 scene.add(hemiLight);
 
-const ambientLight = new THREE.AmbientLight(0x405075, 1.6);
+// Very low ambient — shadows must actually be dark for shape to read
+const ambientLight = new THREE.AmbientLight(0x223344, 0.35);
 scene.add(ambientLight);
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
-dirLight.position.set(22, 40, 20);
+// Key light from upper-LEFT of the camera view (camera sits in +X+Y+Z octant).
+// Direction from board centre (7,0,7): (-18, 38, 8) → normalised ≈ (-0.42, 0.89, 0.19).
+// Dot products for the three camera-visible faces:
+//   +Y top  → 0.89  (bright)
+//   +X right → -0.42 (shadow — filled by blue rim below)
+//   +Z front → 0.19  (dim)
+// Three clearly distinct values — cube reads in 3D.
+const dirLight = new THREE.DirectionalLight(0xffffff, 2.6);
+dirLight.position.set(-11, 38, 15);
+dirLight.target.position.set(7, 0, 7);
+scene.add(dirLight.target);
 dirLight.castShadow = true;
-dirLight.shadow.mapSize.width = 1024;
-dirLight.shadow.mapSize.height = 1024;
-dirLight.shadow.camera.near = 5;
-dirLight.shadow.camera.far = 90;
-dirLight.shadow.camera.left = -16;
-dirLight.shadow.camera.right = 16;
-dirLight.shadow.camera.top = 16;
-dirLight.shadow.camera.bottom = -16;
+dirLight.shadow.mapSize.width = 2048;
+dirLight.shadow.mapSize.height = 2048;
+dirLight.shadow.camera.near = 1;
+dirLight.shadow.camera.far = 130;
+dirLight.shadow.camera.left = -22;
+dirLight.shadow.camera.right = 22;
+dirLight.shadow.camera.top = 22;
+dirLight.shadow.camera.bottom = -22;
 scene.add(dirLight);
 
-const blueRimLight = new THREE.DirectionalLight(0x0066ff, 1.5);
-blueRimLight.position.set(-20, 24, -20);
+// Blue fill from camera-right (+X side) — lifts the key-shadow face with faction colour
+const blueRimLight = new THREE.DirectionalLight(0x0055ff, 1.0);
+blueRimLight.position.set(28, 12, -8);
 scene.add(blueRimLight);
 
-const redRimLight = new THREE.DirectionalLight(0xff0033, 1.2);
-redRimLight.position.set(20, 15, -20);
+// Red rim from enemy direction — wraps back faces of enemy units
+const redRimLight = new THREE.DirectionalLight(0xff0033, 0.75);
+redRimLight.position.set(-12, 10, -28);
 scene.add(redRimLight);
 
 const bgGridHelper = new THREE.GridHelper(140, 70, 0x0066ff, 0x162238);

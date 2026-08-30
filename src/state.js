@@ -9,6 +9,7 @@ export function isValidTile(gx, gz) {
 }
 
 export const gameState = {
+  seed: 0,
   round: 1,
   maxRounds: 5,
   phase: 'PLAYER_TURN',
@@ -24,6 +25,14 @@ export const gameState = {
   particles: [],
   boardGroup: null
 };
+
+let _unitIdCounter = 0;
+export function nextUnitId() {
+  return 'u_' + (++_unitIdCounter);
+}
+export function resetUnitIdCounter() {
+  _unitIdCounter = 0;
+}
 
 export function getCell(gx, gz) {
   if (!isValidTile(gx, gz)) return null;

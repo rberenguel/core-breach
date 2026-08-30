@@ -1,5 +1,6 @@
 import { FACTION, CELL_TYPE, UNIT_TYPES, TILE_SIZE } from './config.js';
 import { gameState, getCell, getUnitAt, isValidTile, gridToWorld } from './state.js';
+import { rng } from './rng.js';
 import { scene, camera, raycaster, mouse, groundPlane } from './scene.js';
 import { audio } from './audio.js';
 import { updateHUD } from './hud.js';
@@ -271,7 +272,7 @@ export async function executeEnemyPhase() {
       scene.remove(sp.mesh);
       gameState.spawners.splice(i, 1);
       const bugTypes = [UNIT_TYPES.SCARAB, UNIT_TYPES.HORNET, UNIT_TYPES.SPITTER];
-      const newType = bugTypes[Math.floor(Math.random() * bugTypes.length)];
+      const newType = bugTypes[Math.floor(rng.random() * bugTypes.length)];
       const newEnemy = spawnUnit(newType, sp.x, sp.z, Math.PI);
       spawnFloatingText('EMERGED!', newEnemy.mesh.position, '#ff0033');
       spawnFireEffect(newEnemy.mesh.position.x, 0.5, newEnemy.mesh.position.z, 25);
