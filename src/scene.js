@@ -40,11 +40,11 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.getElementById('canvas-container').appendChild(renderer.domElement);
 
 // Low hemisphere — just enough to tint the ground bounce, not flood everything
-const hemiLight = new THREE.HemisphereLight(0x888888, 0x111111, 0.35);
+const hemiLight = new THREE.HemisphereLight(0x888888, 0x333333, 0.9);
 scene.add(hemiLight);
 
 // Very low ambient — shadows must actually be dark for shape to read
-const ambientLight = new THREE.AmbientLight(0x333333, 0.20);
+const ambientLight = new THREE.AmbientLight(0x333333, 1.0);
 scene.add(ambientLight);
 
 // Key light from upper-LEFT of the camera view (camera sits in +X+Y+Z octant).

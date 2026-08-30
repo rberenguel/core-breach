@@ -15,9 +15,9 @@ export const Materials = {
   }),
 
   mountain: new THREE.MeshStandardMaterial({
-    color: 0x24334f,
-    roughness: 0.5,
-    metalness: 0.6,
+    color: 0x0e0b1a,
+    roughness: 0.85,
+    metalness: 0.05,
     flatShading: true
   }),
   mountainGlow: new THREE.MeshBasicMaterial({ color: 0x00f0ff, wireframe: true }),
@@ -84,31 +84,92 @@ export function createQuantumCoreMesh() {
   return group;
 }
 
-export function createMountainMesh() {
-  const group = new THREE.Group();
-  const count = 3 + Math.floor(rng.random() * 2);
-  for (let i = 0; i < count; i++) {
-    const height = 1.3 + rng.random() * 0.9;
-    const radius = 0.4 + rng.random() * 0.2;
-    const geo = new THREE.ConeGeometry(radius, height, 5);
-    const mesh = new THREE.Mesh(geo, Materials.mountain);
-    mesh.position.set(
-      (rng.random() - 0.5) * 0.5,
-      height / 2,
-      (rng.random() - 0.5) * 0.5
-    );
-    mesh.rotation.y = rng.random() * Math.PI;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    group.add(mesh);
+function positionHash(wx, wz) {
+  return Math.abs((Math.sin(wx * 127.1 + wz * 311.7) * 43758.5453) % 1);
+}
 
-    const wire = new THREE.Mesh(geo, Materials.mountainGlow);
-    wire.position.copy(mesh.position);
-    wire.rotation.copy(mesh.rotation);
-    wire.scale.set(1.02, 1.02, 1.02);
-    group.add(wire);
+function dirFalloff(n, adjNeg, adjPos) {
+  if (adjNeg && adjPos) return 1.0;
+  if (adjNeg) return Math.max(0, 1 - Math.max(0, n));
+  if (adjPos) return Math.max(0, 1 - Math.max(0, -n));
+  return Math.max(0, 1 - Math.abs(n));
+}
+
+// cellInfos: [{wx, wz}] world positions. Bakes positions into geometry; mesh sits at (0,0,0).
+export function createMountainMesh(cellInfos, heightScale = 1.0) {
+  const TS = 2.0;
+  const segs = 8;
+  const half = TS / 2;
+  const posSet = new Set(cellInfos.map(c => `${c.wx},${c.wz}`));
+
+  const geoList = [];
+  for (const { wx, wz } of cellInfos) {
+    const adjLeft  = posSet.has(`${wx - TS},${wz}`);
+    const adjRight = posSet.has(`${wx + TS},${wz}`);
+    const adjFront = posSet.has(`${wx},${wz - TS}`);
+    const adjBack  = posSet.has(`${wx},${wz + TS}`);
+
+    const geo = new THREE.PlaneGeometry(TS, TS, segs, segs);
+    geo.rotateX(-Math.PI / 2);
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const lx = pos.getX(i);
+      const lz = pos.getZ(i);
+      const falloff = dirFalloff(lx / half, adjLeft, adjRight) *
+                      dirFalloff(lz / half, adjFront, adjBack);
+      pos.setY(i, falloff * heightScale * (1.2 + positionHash(wx + lx, wz + lz) * 0.8));
+      pos.setX(i, lx + wx);
+      pos.setZ(i, lz + wz);
+    }
+    geoList.push(geo);
   }
-  return group;
+
+  let vCount = 0, iCount = 0;
+  for (const g of geoList) { vCount += g.attributes.position.count; iCount += g.index.count; }
+  const positions = new Float32Array(vCount * 3);
+  const indices = new Uint32Array(iCount);
+  let vOff = 0, iOff = 0;
+  for (const g of geoList) {
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      positions[(vOff + i) * 3]     = p.getX(i);
+      positions[(vOff + i) * 3 + 1] = p.getY(i);
+      positions[(vOff + i) * 3 + 2] = p.getZ(i);
+    }
+    const idx = g.index;
+    for (let i = 0; i < idx.count; i++) indices[iOff + i] = idx.getX(i) + vOff;
+    vOff += p.count;
+    iOff += idx.count;
+  }
+
+  const merged = new THREE.BufferGeometry();
+  merged.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  merged.setIndex(new THREE.BufferAttribute(indices, 1));
+  merged.computeVertexNormals();
+
+  const mesh = new THREE.Mesh(merged, Materials.mountain);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+export function createRubbleMesh(wx, wz) {
+  const TS = 2.0;
+  const verts = [];
+  for (let i = 0; i < 4; i++) {
+    const cx = wx + (rng.random() - 0.5) * TS * 0.8;
+    const cz = wz + (rng.random() - 0.5) * TS * 0.8;
+    const r = 0.15 + rng.random() * 0.25;
+    const ang = rng.random() * Math.PI * 2;
+    for (let j = 0; j < 3; j++) {
+      const a = ang + j * (Math.PI * 2 / 3);
+      verts.push(cx + Math.cos(a) * r, rng.random() * 0.06, cz + Math.sin(a) * r);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+  geo.computeVertexNormals();
+  return new THREE.Mesh(geo, Materials.mountain);
 }
 
 export function createStrikerMesh() {

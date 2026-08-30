@@ -13,11 +13,6 @@
   - Hornet → octahedron
   - Spitter → replace stacked cylinder+octahedron with a single simple shape (TBD — e.g. a flat disc / torus-like prism, or just a sphere)
 
-## 3. Enemy hit estimation ignores trees/obstacles
-- The red reticle / damage-preview logic does not account for trees (and possibly other blocking terrain)
-- Line-of-fire or blast path should check for tree tiles and block/alter the estimated hit accordingly
-- Fix `recalculateEnemyIntents` (or wherever intent paths are computed) to treat trees as blockers
-
 ## 4. Add mountains (terrain deformation)
 - Mountains are raised impassable terrain tiles (like Into the Breach)
 - Visually: deform or extrude the tile geometry upward (not just a flat obstacle marker)

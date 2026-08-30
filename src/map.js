@@ -2,7 +2,7 @@ import { GRID_SIZE, TILE_SIZE, CELL_TYPE, UNIT_TYPES, FACTION } from './config.j
 import { gameState, getCell, getUnitAt, gridToWorld, isValidTile, nextUnitId, resetUnitIdCounter } from './state.js';
 import { rng } from './rng.js';
 import { scene } from './scene.js';
-import { Materials, createQuantumCoreMesh, createMountainMesh, createUnitMeshByType } from './materials.js';
+import { Materials, createQuantumCoreMesh, createMountainMesh, createRubbleMesh, createUnitMeshByType } from './materials.js';
 import { audio } from './audio.js';
 import { recalculateEnemyIntents, clearTelegraphs } from './combat.js';
 import { updateHUD } from './hud.js';
@@ -134,6 +134,36 @@ export function generateProceduralLevel() {
     }
   }
 
+  // 2.5. Find connected mountain groups for merged meshes
+  {
+    const allMountains = [];
+    for (let z = 0; z < GRID_SIZE; z++)
+      for (let x = 0; x < GRID_SIZE; x++) {
+        const c = getCell(x, z);
+        if (c.type === CELL_TYPE.MOUNTAIN) allMountains.push(c);
+      }
+    const visited = new Set();
+    for (const seed of allMountains) {
+      const key = `${seed.x},${seed.z}`;
+      if (visited.has(key)) continue;
+      const group = [];
+      const queue = [seed];
+      visited.add(key);
+      while (queue.length > 0) {
+        const c = queue.shift();
+        group.push(c);
+        for (const [dx, dz] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+          const nk = `${c.x+dx},${c.z+dz}`;
+          if (!visited.has(nk)) {
+            const nb = getCell(c.x+dx, c.z+dz);
+            if (nb && nb.type === CELL_TYPE.MOUNTAIN) { visited.add(nk); queue.push(nb); }
+          }
+        }
+      }
+      for (const c of group) c.mountainGroup = group;
+    }
+  }
+
   // 3. Chasms (2 gaps)
   let chasmsPlaced = 0;
   while (chasmsPlaced < 2) {
@@ -172,11 +202,11 @@ export function generateProceduralLevel() {
         coreMesh.position.set(worldPos.x, 0, worldPos.z);
         gameState.boardGroup.add(coreMesh);
         cell.featureMesh = coreMesh;
-      } else if (cell.type === CELL_TYPE.MOUNTAIN) {
-        const mountain = createMountainMesh();
-        mountain.position.set(worldPos.x, 0, worldPos.z);
+      } else if (cell.type === CELL_TYPE.MOUNTAIN && cell.mountainGroup && cell.mountainGroup[0] === cell) {
+        const cellInfos = cell.mountainGroup.map(c => { const w = gridToWorld(c.x, c.z); return { wx: w.x, wz: w.z }; });
+        const mountain = createMountainMesh(cellInfos, 1.0);
         gameState.boardGroup.add(mountain);
-        cell.featureMesh = mountain;
+        for (const c of cell.mountainGroup) c.featureMesh = mountain;
       }
     }
   }

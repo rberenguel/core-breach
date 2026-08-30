@@ -151,7 +151,7 @@ export function executePlayerAttack(unit, targetX, targetZ, dirX, dirZ) {
       damageUnit(targetUnit, 2);
       applyKnockback(targetUnit, dirX, dirZ);
     } else if (targetCell && targetCell.type === CELL_TYPE.MOUNTAIN) {
-      damageMountain(targetCell, 2);
+      damageMountain(targetCell, 1);
     } else if (targetCell && targetCell.type === CELL_TYPE.CORE) {
       damageCore(targetCell, 2);
     }

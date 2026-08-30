@@ -5,7 +5,7 @@ import { audio } from './audio.js';
 import { spawnFloatingText, spawnFireEffect } from './vfx.js';
 import { moveUnitMeshSmooth, flashMeshColor, scaleDownAndRemove } from './animations.js';
 import { updateHUD } from './hud.js';
-import { Materials } from './materials.js';
+import { Materials, createMountainMesh, createRubbleMesh } from './materials.js';
 
 export function applyKnockback(targetUnit, pushDx, pushDz) {
   if (!targetUnit || !targetUnit.alive) return;
@@ -116,19 +116,59 @@ export function damageCore(cell, amount) {
   }
 }
 
+function findSubgroups(cells) {
+  const remaining = new Set(cells.map(c => `${c.x},${c.z}`));
+  const cellMap = {};
+  for (const c of cells) cellMap[`${c.x},${c.z}`] = c;
+  const groups = [];
+  while (remaining.size > 0) {
+    const startKey = remaining.values().next().value;
+    remaining.delete(startKey);
+    const group = [cellMap[startKey]];
+    const queue = [cellMap[startKey]];
+    while (queue.length > 0) {
+      const c = queue.shift();
+      for (const [dx, dz] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+        const nk = `${c.x+dx},${c.z+dz}`;
+        if (remaining.has(nk)) { remaining.delete(nk); group.push(cellMap[nk]); queue.push(cellMap[nk]); }
+      }
+    }
+    groups.push(group);
+  }
+  return groups;
+}
+
 export function damageMountain(cell, amount) {
   cell.hp -= amount;
   const wPos = gridToWorld(cell.x, cell.z);
-  spawnFloatingText(`RUBBLE -${amount}`, { x: wPos.x, y: 1, z: wPos.z }, '#94a3b8');
   spawnFireEffect(wPos.x, 0.7, wPos.z, 15);
+
+  // Remove the old (possibly merged) group mesh
+  const oldGroup = cell.mountainGroup || [cell];
+  if (cell.featureMesh) { gameState.boardGroup.remove(cell.featureMesh); }
+  for (const c of oldGroup) { c.featureMesh = null; c.mountainGroup = null; }
+
+  // Rebuild remaining group cells
+  const remaining = oldGroup.filter(c => c !== cell);
+  for (const subgroup of findSubgroups(remaining)) {
+    const cellInfos = subgroup.map(c => { const w = gridToWorld(c.x, c.z); return { wx: w.x, wz: w.z }; });
+    const mesh = createMountainMesh(cellInfos, 1.0);
+    gameState.boardGroup.add(mesh);
+    for (const c of subgroup) { c.mountainGroup = subgroup; c.featureMesh = mesh; }
+  }
+
+  // Handle this cell
   if (cell.hp <= 0) {
     cell.type = CELL_TYPE.EMPTY;
-    if (cell.featureMesh) {
-      scaleDownAndRemove(cell.featureMesh, () => {
-        scene.remove(cell.featureMesh);
-        cell.featureMesh = null;
-      });
-    }
+    cell.mountainGroup = null;
+    const rubble = createRubbleMesh(wPos.x, wPos.z);
+    gameState.boardGroup.add(rubble);
+    cell.featureMesh = rubble;
+  } else {
+    cell.mountainGroup = [cell];
+    const mesh = createMountainMesh([{ wx: wPos.x, wz: wPos.z }], 0.5);
+    gameState.boardGroup.add(mesh);
+    cell.featureMesh = mesh;
   }
 }
 
