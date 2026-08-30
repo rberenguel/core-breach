@@ -124,7 +124,7 @@ function animate() {
   });
 
   gameState.units.forEach(u => {
-    if (u.alive && u.mesh && u.type === 'HORNET') {
+    if (u.alive && u.mesh && u.type === 'FLIER') {
       u.mesh.position.y = Math.sin(elapsed * 4 + u.x) * 0.15;
       if (u.mesh.userData.diamond) {
         u.mesh.userData.diamond.rotation.y += delta * 2.0;

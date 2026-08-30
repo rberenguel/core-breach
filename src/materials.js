@@ -2,7 +2,7 @@ import { rng } from './rng.js';
 
 export const Materials = {
   tileBase: new THREE.MeshStandardMaterial({
-    color: 0x0e0b1a,
+    color: 0x181520,
     roughness: 0.85,
     metalness: 0.05
   }),
@@ -15,10 +15,15 @@ export const Materials = {
   }),
 
   mountain: new THREE.MeshStandardMaterial({
-    color: 0x0e0b1a,
+    color: 0x181520,
     roughness: 0.85,
     metalness: 0.05,
     flatShading: true
+  }),
+  mountainEdge: new THREE.LineBasicMaterial({
+    color: 0x00ccff,
+    transparent: true,
+    opacity: 0.55
   }),
   mountainGlow: new THREE.MeshBasicMaterial({ color: 0x00f0ff, wireframe: true }),
 
@@ -150,7 +155,14 @@ export function createMountainMesh(cellInfos, heightScale = 1.0) {
   const mesh = new THREE.Mesh(merged, Materials.mountain);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
-  return mesh;
+
+  const edges = new THREE.EdgesGeometry(merged, 15);
+  const lines = new THREE.LineSegments(edges, Materials.mountainEdge);
+
+  const group = new THREE.Group();
+  group.add(mesh);
+  group.add(lines);
+  return group;
 }
 
 export function createRubbleMesh(wx, wz) {
@@ -288,10 +300,10 @@ export function createUnitMeshByType(typeId) {
   switch (typeId) {
     case 'STRIKER':   return createStrikerMesh();
     case 'ARTILLERY': return createArtilleryMesh();
-    case 'LASER':     return createLaserTankMesh();
-    case 'SCARAB':    return createScarabMesh();
-    case 'HORNET':    return createHornetMesh();
-    case 'SPITTER':   return createSpitterMesh();
+    case 'RAILGUN':   return createLaserTankMesh();
+    case 'TANK':      return createScarabMesh();
+    case 'FLIER':     return createHornetMesh();
+    case 'MORTAR':    return createSpitterMesh();
     default:          return createStrikerMesh();
   }
 }

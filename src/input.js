@@ -188,7 +188,7 @@ export function executePlayerAttack(unit, targetX, targetZ, dirX, dirZ) {
 
       recalculateEnemyIntents();
     });
-  } else if (unit.type === 'LASER') {
+  } else if (unit.type === 'RAILGUN') {
     audio.playLaser();
     const startPos = gridToWorld(unit.x, unit.z);
     const endPos = gridToWorld(targetX, targetZ);
@@ -271,7 +271,7 @@ export async function executeEnemyPhase() {
     } else {
       scene.remove(sp.mesh);
       gameState.spawners.splice(i, 1);
-      const bugTypes = [UNIT_TYPES.SCARAB, UNIT_TYPES.HORNET, UNIT_TYPES.SPITTER];
+      const bugTypes = [UNIT_TYPES.TANK, UNIT_TYPES.FLIER, UNIT_TYPES.MORTAR];
       const newType = bugTypes[Math.floor(rng.random() * bugTypes.length)];
       const newEnemy = spawnUnit(newType, sp.x, sp.z, Math.PI);
       newEnemy.justSpawned = true;

@@ -1,7 +1,7 @@
 # Session Compaction Summary
 
 ## User Intent
-- Polish the visual quality of CYBER_BREACH (Into the Breach clone) — unit meshes, effects, and lighting
+- Polish the visual quality of CORE BREACH — unit meshes, effects, and lighting
 - Fix a series of geometry, shading, and VFX nits to make the game feel more alive and readable
 
 ## Contextual Work Summary

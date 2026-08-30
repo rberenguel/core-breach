@@ -254,7 +254,7 @@ export function getReachableTiles(unit) {
 function chooseBestAction(enemy, priorAttackTiles) {
   const reachable = getReachableTiles(enemy);
   const DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-  const maxRange = enemy.type === 'SPITTER' ? 3 : 1;
+  const maxRange = enemy.type === 'MORTAR' ? 3 : 1;
 
   let bestTotalScore = -Infinity;
   let bestAction = null;
@@ -320,7 +320,7 @@ function chooseBestAction(enemy, priorAttackTiles) {
 
 function bestAttackFromTile(enemy, fromX, fromZ) {
   const DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-  const maxRange = enemy.type === 'SPITTER' ? 3 : 1;
+  const maxRange = enemy.type === 'MORTAR' ? 3 : 1;
   let bestScore = 0;
   let bestTarget = { x: fromX, z: Math.min(GRID_SIZE - 1, fromZ + 1), dx: 0, dz: 1 };
 
@@ -361,7 +361,7 @@ export function recalculateEnemyIntents() {
       targetZ: target.z,
       dx: target.dx,
       dz: target.dz,
-      damage: enemy.type === 'SCARAB' ? 2 : 1
+      damage: enemy.type === 'TANK' ? 2 : 1
     };
 
     if (target.dx !== 0 || target.dz !== 0) {
@@ -395,7 +395,7 @@ export async function executeEnemyMovementPhase() {
       targetZ: action.targetZ,
       dx: action.dx,
       dz: action.dz,
-      damage: enemy.type === 'SCARAB' ? 2 : 1
+      damage: enemy.type === 'TANK' ? 2 : 1
     };
 
     if (action.dx !== 0 || action.dz !== 0) {
@@ -414,7 +414,7 @@ export async function executeEnemyMovementPhase() {
     enemy.intent = {
       targetX: target.x, targetZ: target.z,
       dx: target.dx, dz: target.dz,
-      damage: enemy.type === 'SCARAB' ? 2 : 1
+      damage: enemy.type === 'TANK' ? 2 : 1
     };
     if (target.dx !== 0 || target.dz !== 0) {
       enemy.mesh.rotation.y = Math.atan2(target.dx, target.dz);

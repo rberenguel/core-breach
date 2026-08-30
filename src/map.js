@@ -212,7 +212,7 @@ export function generateProceduralLevel() {
   }
 
   // 5. Spawn 3 Blue Player Units
-  const playerConfigs = [UNIT_TYPES.STRIKER, UNIT_TYPES.ARTILLERY, UNIT_TYPES.LASER];
+  const playerConfigs = [UNIT_TYPES.STRIKER, UNIT_TYPES.ARTILLERY, UNIT_TYPES.RAILGUN];
   const playerXs = [1, 3, 6];
   const playerRots = [0, 0, Math.PI];
   playerConfigs.forEach((cfg, idx) => {
@@ -220,7 +220,7 @@ export function generateProceduralLevel() {
   });
 
   // 6. Spawn 3 Red Enemy Units
-  const enemyConfigs = [UNIT_TYPES.SCARAB, UNIT_TYPES.HORNET, UNIT_TYPES.SPITTER];
+  const enemyConfigs = [UNIT_TYPES.TANK, UNIT_TYPES.FLIER, UNIT_TYPES.MORTAR];
   let enemiesSpawned = 0;
   while (enemiesSpawned < 3) {
     const ex = Math.floor(rng.random() * GRID_SIZE);

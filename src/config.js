@@ -17,7 +17,7 @@ export const CELL_TYPE = {
 export const UNIT_TYPES = {
   STRIKER: {
     id: 'STRIKER',
-    name: 'STRIKER CUBE',
+    name: 'STRIKER',
     faction: FACTION.PLAYER,
     hp: 3,
     maxHp: 3,
@@ -28,7 +28,7 @@ export const UNIT_TYPES = {
   },
   ARTILLERY: {
     id: 'ARTILLERY',
-    name: 'CROWNED ARTILLERY',
+    name: 'ARTILLERY',
     faction: FACTION.PLAYER,
     hp: 2,
     maxHp: 2,
@@ -37,9 +37,9 @@ export const UNIT_TYPES = {
     actDesc: '1 DMG + 4-WAY SHOCKWAVE',
     rangeType: 'MORTAR'
   },
-  LASER: {
-    id: 'LASER',
-    name: 'PRISM RAILGUN',
+  RAILGUN: {
+    id: 'RAILGUN',
+    name: 'RAIL GUN',
     faction: FACTION.PLAYER,
     hp: 3,
     maxHp: 3,
@@ -48,9 +48,9 @@ export const UNIT_TYPES = {
     actDesc: '1 DMG LINE + PUSH TARGET',
     rangeType: 'LINE'
   },
-  SCARAB: {
-    id: 'SCARAB',
-    name: 'RED SCARAB',
+  TANK: {
+    id: 'TANK',
+    name: 'TANK',
     faction: FACTION.ENEMY,
     hp: 3,
     maxHp: 3,
@@ -58,9 +58,9 @@ export const UNIT_TYPES = {
     dmg: 2,
     pattern: 'MELEE_PUSH'
   },
-  HORNET: {
-    id: 'HORNET',
-    name: 'RED HORNET',
+  FLIER: {
+    id: 'FLIER',
+    name: 'FLIER',
     faction: FACTION.ENEMY,
     hp: 2,
     maxHp: 2,
@@ -68,9 +68,9 @@ export const UNIT_TYPES = {
     dmg: 1,
     pattern: 'STAB'
   },
-  SPITTER: {
-    id: 'SPITTER',
-    name: 'RED SPITTER',
+  MORTAR: {
+    id: 'MORTAR',
+    name: 'MORTAR',
     faction: FACTION.ENEMY,
     hp: 2,
     maxHp: 2,
