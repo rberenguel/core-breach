@@ -84,7 +84,7 @@ function cancelDrag() {
 }
 
 container.addEventListener('pointercancel', cancelDrag);
-container.addEventListener('contextmenu', e => e.preventDefault());
+container.addEventListener('contextmenu', e => { if (e.button !== 2) e.preventDefault(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) cancelDrag(); });
 
 window.addEventListener('pointerup', (e) => {
@@ -155,6 +155,16 @@ document.getElementById('btn-cam-reset').addEventListener('click', () => {
 document.getElementById('btn-new-sim').addEventListener('click', () => {
   newSeed();
   document.getElementById('settings-panel').classList.add('hidden');
+});
+
+document.getElementById('btn-copy-link').addEventListener('click', () => {
+  const code = seedToCode(gameState.seed);
+  const url = new URL(window.location.href);
+  url.searchParams.set('lvl', code);
+  navigator.clipboard.writeText(url.toString());
+  const btn = document.getElementById('btn-copy-link');
+  btn.textContent = 'COPIED!';
+  setTimeout(() => { btn.textContent = 'COPY LINK'; }, 1500);
 });
 
 document.getElementById('btn-modal-restart').addEventListener('click', () => {
@@ -287,9 +297,6 @@ function applySeed(seed) {
   gameState.seed = seed;
   const code = seedToCode(seed);
   document.getElementById('seed-display').innerText = code;
-  const url = new URL(window.location.href);
-  url.searchParams.set('lvl', code);
-  history.replaceState(null, '', url.toString());
 }
 
 function newSeed() {

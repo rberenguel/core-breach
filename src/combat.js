@@ -263,19 +263,30 @@ export function createTelegraphVisual(enemy) {
         (startPos.z + targetPos.z) / 2
       );
       const curve = new THREE.QuadraticBezierCurve3(start3, mid, end3);
-      const points = curve.getPoints(24);
-      const arcGeo = new THREE.BufferGeometry().setFromPoints(points);
-      const arcMat = new THREE.LineBasicMaterial({ color: 0xff0033, transparent: true, opacity: 0.75 });
-      const arc = new THREE.Line(arcGeo, arcMat);
+      const arcGeo = new THREE.TubeGeometry(curve, 24, 0.06, 6, false);
+      const arcMat = new THREE.MeshBasicMaterial({ color: 0xff0033, transparent: true, opacity: 0.75 });
+      const arc = new THREE.Mesh(arcGeo, arcMat);
       arc.userData.unitId = enemy.id;
       scene.add(arc);
       gameState.telegraphMarkers.push(arc);
     } else {
       const dir = end3.clone().sub(start3).normalize();
-      const arrow = new THREE.ArrowHelper(dir, start3, dist * 0.78, 0xff0033, 0.6, 0.4);
-      arrow.userData.unitId = enemy.id;
-      scene.add(arrow);
-      gameState.telegraphMarkers.push(arrow);
+      const mat = new THREE.MeshBasicMaterial({ color: 0xff0033, transparent: true, opacity: 0.75 });
+      const shaftStart = start3.clone().addScaledVector(dir, 0.9);
+      const shaftEnd = shaftStart.clone().addScaledVector(dir, 0.7);
+      const shaft = new THREE.Mesh(
+        new THREE.TubeGeometry(new THREE.LineCurve3(shaftStart, shaftEnd), 1, 0.06, 6, false),
+        mat
+      );
+      const coneLen = 0.4;
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.13, coneLen, 6), mat);
+      cone.position.copy(shaftEnd).addScaledVector(dir, coneLen / 2);
+      cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      const arrowGroup = new THREE.Group();
+      arrowGroup.add(shaft, cone);
+      arrowGroup.userData.unitId = enemy.id;
+      scene.add(arrowGroup);
+      gameState.telegraphMarkers.push(arrowGroup);
     }
   }
 }
