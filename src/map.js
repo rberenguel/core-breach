@@ -74,10 +74,10 @@ export function addSpawner() {
     const cell = getCell(sx, sz);
     if (cell.type === CELL_TYPE.EMPTY && !getUnitAt(sx, sz) && !gameState.spawners.find(s => s.x === sx && s.z === sz)) {
       const worldPos = gridToWorld(sx, sz);
-      const ringGeo = new THREE.RingGeometry(0.35, 0.75, 6);
-      ringGeo.rotateX(-Math.PI / 2);
-      const mesh = new THREE.Mesh(ringGeo, Materials.spawnerRing);
-      mesh.position.set(worldPos.x, 0.06, worldPos.z);
+      const hexGeo = new THREE.RingGeometry(0.42, 0.58, 6, 1);
+      hexGeo.rotateX(-Math.PI / 2);
+      const mesh = new THREE.Mesh(hexGeo, new THREE.MeshBasicMaterial({ color: 0xff2233, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+      mesh.position.set(worldPos.x, 0.07, worldPos.z);
       scene.add(mesh);
 
       gameState.spawners.push({ x: sx, z: sz, mesh: mesh });

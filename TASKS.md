@@ -1,4 +1,4 @@
-# CYBER_BREACH — Pending Tasks
+# CORE BREACH — Pending Tasks
 
 ## ~~1. Seeded RNG + URL replay~~ DONE
 - Implement a congruent (LCG or similar) random number generator to replace all `Math.random()` calls
@@ -26,10 +26,10 @@
   - Units pushed into a mountain take 1 collision damage (same as existing bump rule)
   - Mountains should appear in procedural level generation
 
-## 5. Enemy AI movement
+## ~~5. Enemy AI movement~~ DONE
 - Enemies appear to be stationary — confirm and fix enemy movement in the execution phase
 - AI should at minimum advance toward its target / preferred attack position each turn
 - Revisit `executeEnemyTurn` (or equivalent) to ensure enemies actually move before attacking
 
-## 6. Spawn points look silly
+## ~~6. Spawn points look silly~~ DONE
 - Make it a a growing and shrinking hexagon on the tile

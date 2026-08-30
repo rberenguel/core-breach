@@ -139,7 +139,10 @@ function animate() {
   });
 
   gameState.spawners.forEach(s => {
-    if (s.mesh) s.mesh.rotation.z += delta * 1.4;
+    if (s.mesh) {
+      const pulse = 0.72 + Math.sin(elapsed * 2.8 + s.x + s.z) * 0.28;
+      s.mesh.scale.setScalar(pulse);
+    }
   });
 
   updateParticles();

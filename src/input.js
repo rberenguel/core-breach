@@ -7,7 +7,7 @@ import { updateHUD } from './hud.js';
 import { clearHighlights, showMoveHighlights, showAttackHighlights } from './highlights.js';
 import { spawnFloatingText, spawnFireEffect, spawnExplosionEffect, spawnLaserBeamEffect, spawnArcProjectile } from './vfx.js';
 import { moveUnitMeshSmooth, animatePunchMesh } from './animations.js';
-import { applyKnockback, damageUnit, damageCore, damageMountain, recalculateEnemyIntents, clearTelegraphs, triggerVictory } from './combat.js';
+import { applyKnockback, damageUnit, damageCore, damageMountain, recalculateEnemyIntents, clearTelegraphs, triggerVictory, executeEnemyMovementPhase } from './combat.js';
 import { spawnUnit, addSpawner } from './map.js';
 
 export function sleep(ms) {
@@ -274,6 +274,7 @@ export async function executeEnemyPhase() {
       const bugTypes = [UNIT_TYPES.SCARAB, UNIT_TYPES.HORNET, UNIT_TYPES.SPITTER];
       const newType = bugTypes[Math.floor(rng.random() * bugTypes.length)];
       const newEnemy = spawnUnit(newType, sp.x, sp.z, Math.PI);
+      newEnemy.justSpawned = true;
       spawnFloatingText('EMERGED!', newEnemy.mesh.position, '#ff0033');
       spawnFireEffect(newEnemy.mesh.position.x, 0.5, newEnemy.mesh.position.z, 25);
       audio.playExplosion();
@@ -298,7 +299,7 @@ export async function executeEnemyPhase() {
     }
   });
 
-  recalculateEnemyIntents();
+  await executeEnemyMovementPhase();
 
   gameState.phase = 'PLAYER_TURN';
   updateHUD();

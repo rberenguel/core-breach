@@ -132,6 +132,10 @@ export function damageMountain(cell, amount) {
   }
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export function clearTelegraphs() {
   gameState.telegraphMarkers.forEach(m => scene.remove(m));
   gameState.telegraphMarkers = [];
@@ -155,14 +159,154 @@ export function createTelegraphVisual(enemy) {
   scene.add(reticle);
   gameState.telegraphMarkers.push(reticle);
 
-  const dir = new THREE.Vector3(targetPos.x - startPos.x, 0, targetPos.z - startPos.z);
-  const length = dir.length();
-  if (length > 0.1) {
-    dir.normalize();
-    const arrow = new THREE.ArrowHelper(dir, new THREE.Vector3(startPos.x, 0.5, startPos.z), length * 0.78, 0xff0033, 0.6, 0.4);
-    scene.add(arrow);
-    gameState.telegraphMarkers.push(arrow);
+  const start3 = new THREE.Vector3(startPos.x, 0.5, startPos.z);
+  const end3 = new THREE.Vector3(targetPos.x, 0.5, targetPos.z);
+  const dist = start3.distanceTo(end3);
+
+  if (dist > 0.1) {
+    if (enemy.pattern === 'RANGED_LOB') {
+      const mid = new THREE.Vector3(
+        (startPos.x + targetPos.x) / 2,
+        1.4 + dist * 0.45,
+        (startPos.z + targetPos.z) / 2
+      );
+      const curve = new THREE.QuadraticBezierCurve3(start3, mid, end3);
+      const points = curve.getPoints(24);
+      const arcGeo = new THREE.BufferGeometry().setFromPoints(points);
+      const arcMat = new THREE.LineBasicMaterial({ color: 0xff0033, transparent: true, opacity: 0.75 });
+      const arc = new THREE.Line(arcGeo, arcMat);
+      scene.add(arc);
+      gameState.telegraphMarkers.push(arc);
+    } else {
+      const dir = end3.clone().sub(start3).normalize();
+      const arrow = new THREE.ArrowHelper(dir, start3, dist * 0.78, 0xff0033, 0.6, 0.4);
+      scene.add(arrow);
+      gameState.telegraphMarkers.push(arrow);
+    }
   }
+}
+
+export function getReachableTiles(unit) {
+  const visited = new Set();
+  const result = [];
+  const queue = [{ x: unit.x, z: unit.z, steps: 0 }];
+  visited.add(`${unit.x},${unit.z}`);
+
+  while (queue.length > 0) {
+    const { x, z, steps } = queue.shift();
+    result.push({ x, z });
+    if (steps >= unit.move) continue;
+
+    for (const [dx, dz] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const nx = x + dx, nz = z + dz;
+      const key = `${nx},${nz}`;
+      if (visited.has(key) || !isValidTile(nx, nz)) continue;
+      const cell = getCell(nx, nz);
+      if (cell.type !== CELL_TYPE.EMPTY) continue;
+      if (getUnitAt(nx, nz)) continue;
+      visited.add(key);
+      queue.push({ x: nx, z: nz, steps: steps + 1 });
+    }
+  }
+  return result;
+}
+
+function chooseBestAction(enemy, priorAttackTiles) {
+  const reachable = getReachableTiles(enemy);
+  const DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+  const maxRange = enemy.type === 'SPITTER' ? 3 : 1;
+
+  let bestTotalScore = -Infinity;
+  let bestAction = null;
+
+  for (const { x: destX, z: destZ } of reachable) {
+    const destPenalty = priorAttackTiles.has(`${destX},${destZ}`) ? -200 : 0;
+
+    let bestAttackScore = 0;
+    let bestTarget = { x: destX, z: Math.min(GRID_SIZE - 1, destZ + 1), dx: 0, dz: 1 };
+
+    for (const [dx, dz] of DIRS) {
+      for (let r = 1; r <= maxRange; r++) {
+        const tx = destX + dx * r;
+        const tz = destZ + dz * r;
+        if (!isValidTile(tx, tz)) break;
+
+        const cell = getCell(tx, tz);
+        const unit = getUnitAt(tx, tz);
+
+        let score = 0;
+        if (cell.type === CELL_TYPE.CORE) score = 125;
+        else if (unit && unit.faction === FACTION.PLAYER) score = 100;
+        else if (unit && unit.faction === FACTION.ENEMY) score = -150;
+        else if (cell.type === CELL_TYPE.MOUNTAIN) score = 30;
+
+        if (score > bestAttackScore) {
+          bestAttackScore = score;
+          bestTarget = { x: tx, z: tz, dx, dz };
+        }
+      }
+    }
+
+    if (bestAttackScore <= 0) {
+      let minDist = Infinity;
+      for (const u of gameState.units) {
+        if (u.alive && u.faction === FACTION.PLAYER) {
+          const d = Math.abs(u.x - destX) + Math.abs(u.z - destZ);
+          if (d < minDist) minDist = d;
+        }
+      }
+      for (const c of gameState.cores) {
+        if (c.hp > 0) {
+          const d = Math.abs(c.x - destX) + Math.abs(c.z - destZ);
+          if (d < minDist) minDist = d;
+        }
+      }
+      bestAttackScore = Math.max(0, 5 - minDist * 0.5);
+    }
+
+    const totalScore = bestAttackScore + destPenalty;
+    if (totalScore > bestTotalScore) {
+      bestTotalScore = totalScore;
+      bestAction = { destX, destZ, targetX: bestTarget.x, targetZ: bestTarget.z, dx: bestTarget.dx, dz: bestTarget.dz };
+    }
+  }
+
+  return bestAction ?? {
+    destX: enemy.x, destZ: enemy.z,
+    targetX: enemy.x, targetZ: Math.min(GRID_SIZE - 1, enemy.z + 1),
+    dx: 0, dz: 1
+  };
+}
+
+function bestAttackFromTile(enemy, fromX, fromZ) {
+  const DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+  const maxRange = enemy.type === 'SPITTER' ? 3 : 1;
+  let bestScore = 0;
+  let bestTarget = { x: fromX, z: Math.min(GRID_SIZE - 1, fromZ + 1), dx: 0, dz: 1 };
+
+  for (const [dx, dz] of DIRS) {
+    for (let r = 1; r <= maxRange; r++) {
+      const tx = fromX + dx * r;
+      const tz = fromZ + dz * r;
+      if (!isValidTile(tx, tz)) break;
+
+      const cell = getCell(tx, tz);
+      const unit = getUnitAt(tx, tz);
+
+      let score = 0;
+      if (cell.type === CELL_TYPE.CORE) score = 125;
+      else if (unit && unit.faction === FACTION.PLAYER) score = 100;
+      else if (unit && unit.faction === FACTION.ENEMY) score = -150;
+      else if (cell.type === CELL_TYPE.MOUNTAIN) score = 30;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestTarget = { x: tx, z: tz, dx, dz };
+      }
+    }
+  }
+
+  return bestTarget;
 }
 
 export function recalculateEnemyIntents() {
@@ -170,54 +314,74 @@ export function recalculateEnemyIntents() {
   const enemies = gameState.units.filter(u => u.alive && u.faction === FACTION.ENEMY);
 
   enemies.forEach(enemy => {
-    let bestTarget = null;
-    let highestPriority = -1;
-
-    for (let dz = -1; dz <= 1; dz++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        if (Math.abs(dx) + Math.abs(dz) !== 1) continue;
-
-        const maxRange = (enemy.type === 'SPITTER') ? 3 : 1;
-        for (let r = 1; r <= maxRange; r++) {
-          const tx = enemy.x + dx * r;
-          const tz = enemy.z + dz * r;
-          if (!isValidTile(tx, tz)) continue;
-
-          const cell = getCell(tx, tz);
-          const unit = getUnitAt(tx, tz);
-
-          let priority = 0;
-          if (cell.type === CELL_TYPE.CORE) priority = 10;
-          else if (unit && unit.faction === FACTION.PLAYER) priority = 8;
-          else if (cell.type === CELL_TYPE.MOUNTAIN) priority = 1;
-
-          if (priority > highestPriority) {
-            highestPriority = priority;
-            bestTarget = { x: tx, z: tz, dx: dx, dz: dz };
-          }
-        }
-      }
-    }
-
-    if (!bestTarget) {
-      const fwdZ = Math.min(GRID_SIZE - 1, enemy.z + 1);
-      bestTarget = { x: enemy.x, z: fwdZ, dx: 0, dz: 1 };
-    }
+    const target = bestAttackFromTile(enemy, enemy.x, enemy.z);
 
     enemy.intent = {
-      targetX: bestTarget.x,
-      targetZ: bestTarget.z,
-      dx: bestTarget.dx,
-      dz: bestTarget.dz,
-      damage: (enemy.type === 'SCARAB' ? 2 : 1)
+      targetX: target.x,
+      targetZ: target.z,
+      dx: target.dx,
+      dz: target.dz,
+      damage: enemy.type === 'SCARAB' ? 2 : 1
     };
 
-    if (enemy.intent.dx !== 0 || enemy.intent.dz !== 0) {
-      enemy.mesh.rotation.y = Math.atan2(enemy.intent.dx, enemy.intent.dz);
+    if (target.dx !== 0 || target.dz !== 0) {
+      enemy.mesh.rotation.y = Math.atan2(target.dx, target.dz);
     }
 
     createTelegraphVisual(enemy);
   });
+}
+
+export async function executeEnemyMovementPhase() {
+  const enemies = gameState.units.filter(u => u.alive && u.faction === FACTION.ENEMY);
+  const priorAttackTiles = new Set();
+
+  clearTelegraphs();
+
+  for (const enemy of enemies) {
+    if (!enemy.alive || enemy.justSpawned) continue;
+
+    const action = chooseBestAction(enemy, priorAttackTiles);
+
+    if (action.destX !== enemy.x || action.destZ !== enemy.z) {
+      enemy.x = action.destX;
+      enemy.z = action.destZ;
+      await new Promise(resolve => moveUnitMeshSmooth(enemy, action.destX, action.destZ, resolve));
+      await sleep(100);
+    }
+
+    enemy.intent = {
+      targetX: action.targetX,
+      targetZ: action.targetZ,
+      dx: action.dx,
+      dz: action.dz,
+      damage: enemy.type === 'SCARAB' ? 2 : 1
+    };
+
+    if (action.dx !== 0 || action.dz !== 0) {
+      enemy.mesh.rotation.y = Math.atan2(action.dx, action.dz);
+    }
+
+    createTelegraphVisual(enemy);
+    priorAttackTiles.add(`${action.targetX},${action.targetZ}`);
+
+    await sleep(150);
+  }
+
+  for (const enemy of enemies) {
+    if (!enemy.alive || !enemy.justSpawned) continue;
+    const target = bestAttackFromTile(enemy, enemy.x, enemy.z);
+    enemy.intent = {
+      targetX: target.x, targetZ: target.z,
+      dx: target.dx, dz: target.dz,
+      damage: enemy.type === 'SCARAB' ? 2 : 1
+    };
+    if (target.dx !== 0 || target.dz !== 0) {
+      enemy.mesh.rotation.y = Math.atan2(target.dx, target.dz);
+    }
+    createTelegraphVisual(enemy);
+    enemy.justSpawned = false;
+  }
 }
 
 export function triggerVictory() {
