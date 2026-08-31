@@ -159,7 +159,7 @@ document.getElementById('btn-copy-link').addEventListener('click', () => {
 
 document.getElementById('btn-modal-restart').addEventListener('click', () => {
   document.getElementById('modal-screen').classList.add('opacity-0', 'pointer-events-none');
-  generateProceduralLevel();
+  newSeed();
 });
 
 document.getElementById('btn-audio').addEventListener('click', () => {
