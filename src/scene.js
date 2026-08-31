@@ -23,9 +23,15 @@ export function updateCameraFromAngles() {
 }
 
 export function resetCamera() {
-  camState.radius = 45;
+  const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  camState.radius = isMobile ? 58 : 45;
   camState.theta = Math.PI / 4;
   camState.phi = Math.PI / 3.8;
+  camTarget.set(
+    ((GRID_SIZE - 1) * TILE_SIZE) / 2,
+    0,
+    ((GRID_SIZE - 1) * TILE_SIZE) / 2
+  );
   updateCameraFromAngles();
 }
 

@@ -2,6 +2,18 @@ export const GRID_SIZE = 8;
 export const TILE_SIZE = 2.0;
 export const MAX_ROUNDS = 5;
 
+export const DIFFICULTY = {
+  EASY: 'EASY',
+  NORMAL: 'NORMAL',
+  HARD: 'HARD'
+};
+
+export function getDifficultyForRound(round) {
+  if (round <= 1) return DIFFICULTY.EASY;
+  if (round <= 5) return DIFFICULTY.NORMAL;
+  return DIFFICULTY.HARD;
+}
+
 export const FACTION = {
   PLAYER: 'PLAYER',
   ENEMY: 'ENEMY'

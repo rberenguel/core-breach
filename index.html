@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="libs/utils.css">
   <link rel="stylesheet" href="src/styles.css">
   <script src="libs/three.min.js"></script>
+  <script src="libs/interact.min.js"></script>
 </head>
 <body class="w-screen h-screen relative select-none">
 
@@ -52,6 +53,9 @@
         <button id="btn-audio" class="cyber-btn px-3 py-2 text-xs font-mono-tech text-blue-300 bg-black/60 border border-blue-400/40 hover:bg-blue-500/20 active:scale-95 transition text-left">
           AUDIO: <span id="audio-state">ON</span>
         </button>
+        <div class="px-3 py-2 text-xs font-mono-tech text-orange-300 border border-orange-400/40 select-none">
+          DIFFICULTY: <span id="difficulty-state" class="text-orange-300 font-bold">EASY</span>
+        </div>
         <button id="btn-new-sim" class="cyber-btn px-3 py-2 text-xs font-mono-tech text-red-400 bg-black/60 border border-red-500/40 hover:bg-red-500/20 active:scale-95 transition text-left">
           NEW SEED
         </button>

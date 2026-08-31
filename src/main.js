@@ -8,173 +8,81 @@ import { showAttackHighlights, clearAttackPreview } from './highlights.js';
 import { updateParticles } from './vfx.js';
 import { FACTION, GRID_SIZE, TILE_SIZE } from './config.js';
 
-// --- Pan overlay ---
-const _hw = (GRID_SIZE * TILE_SIZE) / 2 + 0.5;
-const panOverlayPoints = new Float32Array([
-  -_hw, 0, -_hw,  _hw, 0, -_hw,
-   _hw, 0, -_hw,  _hw, 0,  _hw,
-   _hw, 0,  _hw, -_hw, 0,  _hw,
-  -_hw, 0,  _hw, -_hw, 0, -_hw,
-]);
-const panOverlayGeo = new THREE.BufferGeometry();
-panOverlayGeo.setAttribute('position', new THREE.BufferAttribute(panOverlayPoints, 3));
-const panOverlay = new THREE.LineSegments(panOverlayGeo, new THREE.LineBasicMaterial({ color: 0xffff00 }));
-panOverlay.position.set(camTarget.x, 0.1, camTarget.z);
-panOverlay.visible = false;
-scene.add(panOverlay);
-
-// --- Camera orbit state ---
-let isDragging = false;
-let isPointerDown = false;
-let mouseDownPos = { x: 0, y: 0 };
-let prevMousePos = { x: 0, y: 0 };
-let camTargetAtDown = { x: 0, z: 0 };
-let panReadyTimeout = null;
-let panReady = false;
-
+// --- Camera pan, pinch, and tap with interact.js ---
 const container = document.getElementById('canvas-container');
+const DRAG_THRESHOLD = 8; // px — dead zone to distinguish taps from drags
 
-container.addEventListener('pointerdown', (e) => {
-  if (e.button !== 0) return;
-  console.log('[CLICKLOG] canvas pointerdown', 'clientX=', e.clientX, 'clientY=', e.clientY, 'target=', e.target.tagName);
-  container.setPointerCapture(e.pointerId);
-  isPointerDown = true;
-  mouseDownPos = { x: e.clientX, y: e.clientY };
-  prevMousePos = { x: e.clientX, y: e.clientY };
-  isDragging = false;
-  camTargetAtDown = { x: camTarget.x, z: camTarget.z };
-  panReady = false;
-  panReadyTimeout = setTimeout(() => { panOverlay.visible = true; panReady = true; }, 500);
-  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-});
+let isPanning = false;
+let dragAccumX = 0;
+let dragAccumY = 0;
+let pinchStartRadius = camState.radius;
 
+// Keep mouse vector updated for raycasting
 window.addEventListener('pointermove', (e) => {
   mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
-  if (e.buttons !== 1 && isPointerDown) { cancelDrag(); }
-  if (e.buttons === 1) {
-    const dist = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
-    if (dist > 20 && panReady) {
-      isDragging = true;
-    }
-    if (isDragging) {
-      const dx = e.clientX - prevMousePos.x;
-      const dy = e.clientY - prevMousePos.y;
-      const speed = camState.radius * 0.0008;
-      camTarget.x += dx * speed * (-Math.sin(camState.theta)) + dy * speed * (-Math.cos(camState.theta));
-      camTarget.z += dx * speed * Math.cos(camState.theta) + dy * speed * (-Math.sin(camState.theta));
-      updateCameraFromAngles();
-    }
-    prevMousePos = { x: e.clientX, y: e.clientY };
-  }
 });
 
-function cancelDrag() {
-  if (isPointerDown) {
-    camTarget.x = camTargetAtDown.x;
-    camTarget.z = camTargetAtDown.z;
-    updateCameraFromAngles();
-  }
-  isDragging = false;
-  isPointerDown = false;
-  panReady = false;
-  panOverlay.visible = false;
-  clearTimeout(panReadyTimeout);
-}
+interact(document.body)
+  .draggable({
+    ignoreFrom: 'button, a, input, select, textarea, .cyber-btn, .cyber-panel, #unit-card, #game-footer, header, footer, #settings-panel, #modal-screen, #startup-modal',
+    listeners: {
+      start(event) {
+        isPanning = false;
+        dragAccumX = 0;
+        dragAccumY = 0;
+      },
+      move(event) {
+        dragAccumX += event.dx;
+        dragAccumY += event.dy;
 
-container.addEventListener('pointercancel', cancelDrag);
-container.addEventListener('contextmenu', e => { if (e.button !== 2) e.preventDefault(); });
-document.addEventListener('visibilitychange', () => { if (document.hidden) cancelDrag(); });
+        const dist = Math.hypot(dragAccumX, dragAccumY);
+        if (!isPanning && dist > DRAG_THRESHOLD) {
+          isPanning = true;
+        }
 
-window.addEventListener('pointerdown', (e) => {
-  console.log('[CLICKLOG] window pointerdown target=', e.target.id || e.target.tagName, 'clientX=', e.clientX, 'clientY=', e.clientY);
-}, true);
-
-window.addEventListener('pointerup', (e) => {
-  if (e.button === 0 && isPointerDown) {
-    if (!isDragging) {
-      camTarget.x = camTargetAtDown.x;
-      camTarget.z = camTargetAtDown.z;
-      updateCameraFromAngles();
-      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        if (isPanning) {
+          event.preventDefault();
+          const speed = camState.radius * 0.0008;
+          camTarget.x += event.dx * speed * (-Math.sin(camState.theta)) + event.dy * speed * (-Math.cos(camState.theta));
+          camTarget.z += event.dx * speed * Math.cos(camState.theta) + event.dy * speed * (-Math.sin(camState.theta));
+          updateCameraFromAngles();
+        }
+      },
+      end(event) {
+        isPanning = false;
+      }
+    }
+  })
+  .on('tap', (event) => {
+    if (event.target.closest('#canvas-container')) {
+      const cx = event.clientX ?? event.pageX ?? 0;
+      const cy = event.clientY ?? event.pageY ?? 0;
+      mouse.x = (cx / window.innerWidth) * 2 - 1;
+      mouse.y = -(cy / window.innerHeight) * 2 + 1;
+      console.log('[TAP] raw=', cx, cy, 'mouse=', mouse.x.toFixed(3), mouse.y.toFixed(3), 'target=', event.target.id || event.target.tagName);
       handlePreciseGridClick();
     }
-    isDragging = false;
-    isPointerDown = false;
-    panOverlay.visible = false;
-    clearTimeout(panReadyTimeout);
-  }
-});
+  })
+  .gesturable({
+    listeners: {
+      start(event) {
+        pinchStartRadius = camState.radius;
+      },
+      move(event) {
+        event.preventDefault();
+        camState.radius = Math.max(22, Math.min(65, pinchStartRadius / event.scale));
+        updateCameraFromAngles();
+      }
+    }
+  });
 
+container.addEventListener('contextmenu', e => { if (e.button !== 2) e.preventDefault(); });
 
 container.addEventListener('wheel', (e) => {
   camState.radius = Math.max(22, Math.min(65, camState.radius + e.deltaY * 0.03));
   updateCameraFromAngles();
 }, { passive: true });
-
-// --- Pinch to zoom (touch) ---
-let lastPinchDist = null;
-
-container.addEventListener('touchstart', (e) => {
-  if (e.touches.length === 2) {
-    cancelDrag();
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    lastPinchDist = Math.hypot(dx, dy);
-    e.preventDefault();
-  }
-}, { passive: false });
-
-container.addEventListener('touchmove', (e) => {
-  if (e.touches.length === 2 && lastPinchDist !== null) {
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    const dist = Math.hypot(dx, dy);
-    camState.radius = Math.max(22, Math.min(65, camState.radius + (lastPinchDist - dist) * 0.12));
-    updateCameraFromAngles();
-    lastPinchDist = dist;
-    e.preventDefault();
-  }
-}, { passive: false });
-
-container.addEventListener('touchend', () => { lastPinchDist = null; }, { passive: true });
-
-// --- Pan knob (mobile only) ---
-if (navigator.maxTouchPoints > 0) {
-  const knob = document.createElement('div');
-  knob.id = 'pan-knob';
-  knob.className = 'pan-knob';
-  knob.textContent = '✥';
-  const footer = document.getElementById('game-footer');
-  footer.insertBefore(knob, footer.firstChild);
-
-  let knobActive = false;
-  let knobPrev = { x: 0, y: 0 };
-
-  knob.addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    knob.setPointerCapture(e.pointerId);
-    knobActive = true;
-    knobPrev = { x: e.clientX, y: e.clientY };
-  });
-
-  knob.addEventListener('pointermove', (e) => {
-    if (!knobActive) return;
-    const dx = e.clientX - knobPrev.x;
-    const dy = e.clientY - knobPrev.y;
-    const spd = camState.radius * 0.002;
-    camTarget.x += dx * spd * (-Math.sin(camState.theta)) + dy * spd * (-Math.cos(camState.theta));
-    camTarget.z += dx * spd * Math.cos(camState.theta) + dy * spd * (-Math.sin(camState.theta));
-    updateCameraFromAngles();
-    knobPrev = { x: e.clientX, y: e.clientY };
-  });
-
-  knob.addEventListener('pointerup', () => { knobActive = false; });
-  knob.addEventListener('pointercancel', () => { knobActive = false; });
-}
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;

@@ -1,5 +1,5 @@
-import { FACTION, CELL_TYPE, UNIT_TYPES, TILE_SIZE, GRID_SIZE } from './config.js';
-import { gameState, getCell, getUnitAt, isValidTile, gridToWorld } from './state.js';
+import { FACTION, CELL_TYPE, UNIT_TYPES, TILE_SIZE, GRID_SIZE, getDifficultyForRound } from './config.js';
+import { gameState, getCell, getUnitAt, isValidTile, gridToWorld, findPath } from './state.js';
 import { rng } from './rng.js';
 import { scene, camera, raycaster, mouse } from './scene.js';
 import { audio } from './audio.js';
@@ -186,6 +186,7 @@ export function handlePreciseGridClick() {
 
 export function executePlayerMove(unit, destX, destZ) {
   gameState.moveHistory = { unit: unit, origX: unit.x, origZ: unit.z };
+  const path = findPath(unit.x, unit.z, destX, destZ, { allowPool: false });
 
   unit.x = destX;
   unit.z = destZ;
@@ -204,12 +205,13 @@ export function executePlayerMove(unit, destX, destZ) {
     if (!unit.dataOverload) showAttackHighlights(unit);
     else clearHighlights();
     updateHUD();
-  });
+  }, path);
 }
 
 export function undoPlayerMove() {
   if (!gameState.moveHistory || gameState.moveHistory.unit.hasActed) return;
   const { unit, origX, origZ } = gameState.moveHistory;
+  const path = findPath(unit.x, unit.z, origX, origZ, { allowPool: false });
   unit.x = origX;
   unit.z = origZ;
   unit.hasMoved = false;
@@ -221,7 +223,7 @@ export function undoPlayerMove() {
     gameState.selectedAction = 'MOVE';
     showMoveHighlights(unit);
     updateHUD();
-  });
+  }, path);
 }
 
 export function executePlayerAttack(unit, targetX, targetZ, dirX, dirZ) {
@@ -235,7 +237,7 @@ export function executePlayerAttack(unit, targetX, targetZ, dirX, dirZ) {
 
   if (unit.type === 'STRIKER') {
     audio.playPunch();
-    animatePunchMesh(unit.mesh);
+    animatePunchMesh(unit.mesh, 0x0066ff);
     const targetUnit = getUnitAt(targetX, targetZ);
     const targetCell = getCell(targetX, targetZ);
 
@@ -339,23 +341,51 @@ export async function executeEnemyPhase() {
     const targetUnit = getUnitAt(intent.targetX, intent.targetZ);
     const targetCell = getCell(intent.targetX, intent.targetZ);
 
-    animatePunchMesh(enemy.mesh);
-    audio.playPunch();
+    if (enemy.type === 'MORTAR') {
+      audio.playMortar();
+      const startPos = gridToWorld(enemy.x, enemy.z);
+      const centerPos = gridToWorld(intent.targetX, intent.targetZ);
+      spawnArcProjectile(startPos, centerPos, () => {
+        spawnExplosionEffect(centerPos.x, centerPos.z);
+        spawnFireEffect(centerPos.x, 0.5, centerPos.z, 30);
+        if (targetUnit) damageUnit(targetUnit, intent.damage);
+        if (targetCell && targetCell.type === CELL_TYPE.MOUNTAIN) damageMountain(targetCell, intent.damage);
+        if (targetCell && targetCell.type === CELL_TYPE.CORE) damageCore(targetCell, intent.damage);
+        const adjacent = [
+          { x: intent.targetX + 1, z: intent.targetZ, dx: 1, dz: 0 },
+          { x: intent.targetX - 1, z: intent.targetZ, dx: -1, dz: 0 },
+          { x: intent.targetX, z: intent.targetZ + 1, dx: 0, dz: 1 },
+          { x: intent.targetX, z: intent.targetZ - 1, dx: 0, dz: -1 }
+        ];
+        adjacent.forEach(adj => {
+          if (isValidTile(adj.x, adj.z)) {
+            const u = getUnitAt(adj.x, adj.z);
+            if (u) {
+              damageUnit(u, 1);
+              applyKnockback(u, adj.dx, adj.dz);
+            }
+          }
+        });
+      });
+      await sleep(600);
+    } else {
+      animatePunchMesh(enemy.mesh);
+      audio.playPunch();
+      await sleep(250);
 
-    await sleep(250);
-
-    if (targetUnit) {
-      damageUnit(targetUnit, intent.damage);
-      if (intent.dx !== 0 || intent.dz !== 0) {
-        applyKnockback(targetUnit, intent.dx, intent.dz);
+      if (targetUnit) {
+        damageUnit(targetUnit, intent.damage);
+        if (intent.dx !== 0 || intent.dz !== 0) {
+          applyKnockback(targetUnit, intent.dx, intent.dz);
+        }
+      } else if (targetCell && targetCell.type === CELL_TYPE.CORE) {
+        damageCore(targetCell, intent.damage);
+      } else if (targetCell && targetCell.type === CELL_TYPE.MOUNTAIN) {
+        damageMountain(targetCell, intent.damage);
       }
-    } else if (targetCell && targetCell.type === CELL_TYPE.CORE) {
-      damageCore(targetCell, intent.damage);
-    } else if (targetCell && targetCell.type === CELL_TYPE.MOUNTAIN) {
-      damageMountain(targetCell, intent.damage);
-    }
 
-    await sleep(350);
+      await sleep(350);
+    }
 
     const remainingCores = gameState.cores.filter(c => c.hp > 0).length;
     if (remainingCores === 0) return;
@@ -389,6 +419,7 @@ export async function executeEnemyPhase() {
   }
 
   gameState.round++;
+  gameState.difficulty = getDifficultyForRound(gameState.round);
   if (gameState.round > gameState.maxRounds) {
     triggerVictory();
     return;

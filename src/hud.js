@@ -17,6 +17,8 @@ function formatOutcomes(outcomes) {
 
 export function updateHUD() {
   document.getElementById('round-num').innerText = gameState.round;
+  const diffEl = document.getElementById('difficulty-state');
+  if (diffEl) diffEl.innerText = gameState.difficulty;
 
   const card = document.getElementById('unit-card');
   const unit = gameState.selectedUnit;

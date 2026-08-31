@@ -34,24 +34,6 @@ button {
   padding-right: env(safe-area-inset-right, 0px);
 }
 
-.pan-knob {
-  box-sizing: border-box;
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 50%;
-  background: rgba(0, 120, 255, 0.18);
-  border: 2px solid rgba(0, 150, 255, 0.55);
-  touch-action: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(80, 180, 255, 0.75);
-  font-size: 1.375rem;
-  user-select: none;
-  pointer-events: all;
-  flex-shrink: 0;
-}
-
 #btn-end-turn {
   box-sizing: border-box;
   width: 3.5rem;

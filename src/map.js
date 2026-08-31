@@ -1,4 +1,4 @@
-import { GRID_SIZE, TILE_SIZE, CELL_TYPE, UNIT_TYPES, FACTION } from './config.js';
+import { GRID_SIZE, TILE_SIZE, CELL_TYPE, UNIT_TYPES, FACTION, getDifficultyForRound } from './config.js';
 import { gameState, getCell, getUnitAt, gridToWorld, isValidTile, nextUnitId, resetUnitIdCounter } from './state.js';
 import { rng } from './rng.js';
 import { scene } from './scene.js';
@@ -100,6 +100,7 @@ export function generateProceduralLevel() {
   gameState.selectedUnit = null;
   gameState.moveHistory = null;
   gameState.round = 1;
+  gameState.difficulty = getDifficultyForRound(1);
   gameState.phase = 'PLAYER_TURN';
 
   clearHighlights();

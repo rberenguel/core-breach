@@ -1,6 +1,7 @@
-import { FACTION, CELL_TYPE, MAX_ROUNDS, TILE_SIZE, GRID_SIZE } from './config.js';
-import { gameState, getCell, getUnitAt, gridToWorld, isValidTile } from './state.js';
+import { FACTION, CELL_TYPE, MAX_ROUNDS, TILE_SIZE, GRID_SIZE, DIFFICULTY } from './config.js';
+import { gameState, getCell, getUnitAt, gridToWorld, isValidTile, findPath } from './state.js';
 import { scene } from './scene.js';
+import { rng } from './rng.js';
 import { audio } from './audio.js';
 import { spawnFloatingText, spawnFireEffect } from './vfx.js';
 import { moveUnitMeshSmooth, flashMeshColor, scaleDownAndRemove } from './animations.js';
@@ -316,67 +317,95 @@ export function getReachableTiles(unit) {
   return result;
 }
 
+function scoreAction(enemy, destX, destZ, tx, tz, dx, dz, priorAttackTiles) {
+  const cell = getCell(tx, tz);
+  const unit = getUnitAt(tx, tz);
+
+  let score = 0;
+  // Primary targets
+  if (cell.type === CELL_TYPE.CORE) score += 125;
+  else if (unit && unit.faction === FACTION.PLAYER) score += 100;
+  else if (cell.type === CELL_TYPE.MOUNTAIN) score += 30;
+  else if (unit && unit.faction === FACTION.ENEMY) score -= 150; // friendly fire
+
+  // Prior attack zone penalty (moving into a tile another enemy is already attacking)
+  if (priorAttackTiles.has(`${destX},${destZ}`)) score -= 200;
+
+  // Repeat target penalty
+  if (enemy.lastTargetX !== undefined && enemy.lastTargetZ !== undefined) {
+    if (tx === enemy.lastTargetX && tz === enemy.lastTargetZ) score -= 45;
+  }
+
+  // Proximity fallback for repositioning moves that don't attack anything valuable
+  if (score <= 0) {
+    let minDist = Infinity;
+    for (const u of gameState.units) {
+      if (u.alive && u.faction === FACTION.PLAYER) {
+        const d = Math.abs(u.x - destX) + Math.abs(u.z - destZ);
+        if (d < minDist) minDist = d;
+      }
+    }
+    for (const c of gameState.cores) {
+      if (c.hp > 0) {
+        const d = Math.abs(c.x - destX) + Math.abs(c.z - destZ);
+        if (d < minDist) minDist = d;
+      }
+    }
+    score += Math.max(0, 5 - minDist * 0.5);
+  }
+
+  return score;
+}
+
+function pickFromCandidatePool(candidates, difficulty) {
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.score - a.score);
+
+  const maxScore = candidates[0].score;
+  let pool;
+
+  if (difficulty === DIFFICULTY.HARD) {
+    // Top 2 or within 5% of max
+    pool = candidates.filter(c => c.score >= maxScore * 0.95).slice(0, 2);
+  } else if (difficulty === DIFFICULTY.NORMAL) {
+    // Top 3 or within 15% of max
+    pool = candidates.filter(c => c.score >= maxScore * 0.85).slice(0, 3);
+  } else {
+    // EASY: top 6 or within 40% of max
+    pool = candidates.filter(c => c.score >= maxScore * 0.60).slice(0, 6);
+  }
+
+  if (pool.length === 0) pool = [candidates[0]];
+  return pool[Math.floor(rng.random() * pool.length)];
+}
+
 function chooseBestAction(enemy, priorAttackTiles) {
   const reachable = getReachableTiles(enemy);
   const DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
   const maxRange = enemy.type === 'MORTAR' ? 3 : 1;
-
-  let bestTotalScore = -Infinity;
-  let bestAction = null;
+  const candidates = [];
 
   for (const { x: destX, z: destZ } of reachable) {
-    const destPenalty = priorAttackTiles.has(`${destX},${destZ}`) ? -200 : 0;
-
-    let bestAttackScore = 0;
-    let bestTarget = { x: destX, z: Math.min(GRID_SIZE - 1, destZ + 1), dx: 0, dz: 1 };
-
     for (const [dx, dz] of DIRS) {
       for (let r = 1; r <= maxRange; r++) {
         const tx = destX + dx * r;
         const tz = destZ + dz * r;
         if (!isValidTile(tx, tz)) break;
 
-        const cell = getCell(tx, tz);
-        const unit = getUnitAt(tx, tz);
-
-        let score = 0;
-        if (cell.type === CELL_TYPE.CORE) score = 125;
-        else if (unit && unit.faction === FACTION.PLAYER) score = 100;
-        else if (unit && unit.faction === FACTION.ENEMY) score = -150;
-        else if (cell.type === CELL_TYPE.MOUNTAIN) score = 30;
-
-        if (score > bestAttackScore) {
-          bestAttackScore = score;
-          bestTarget = { x: tx, z: tz, dx, dz };
-        }
+        const score = scoreAction(enemy, destX, destZ, tx, tz, dx, dz, priorAttackTiles);
+        candidates.push({
+          destX, destZ,
+          targetX: tx, targetZ: tz,
+          dx, dz,
+          score
+        });
       }
-    }
-
-    if (bestAttackScore <= 0) {
-      let minDist = Infinity;
-      for (const u of gameState.units) {
-        if (u.alive && u.faction === FACTION.PLAYER) {
-          const d = Math.abs(u.x - destX) + Math.abs(u.z - destZ);
-          if (d < minDist) minDist = d;
-        }
-      }
-      for (const c of gameState.cores) {
-        if (c.hp > 0) {
-          const d = Math.abs(c.x - destX) + Math.abs(c.z - destZ);
-          if (d < minDist) minDist = d;
-        }
-      }
-      bestAttackScore = Math.max(0, 5 - minDist * 0.5);
-    }
-
-    const totalScore = bestAttackScore + destPenalty;
-    if (totalScore > bestTotalScore) {
-      bestTotalScore = totalScore;
-      bestAction = { destX, destZ, targetX: bestTarget.x, targetZ: bestTarget.z, dx: bestTarget.dx, dz: bestTarget.dz };
     }
   }
 
-  return bestAction ?? {
+  const picked = pickFromCandidatePool(candidates, gameState.difficulty);
+
+  return picked ?? {
     destX: enemy.x, destZ: enemy.z,
     targetX: enemy.x, targetZ: Math.min(GRID_SIZE - 1, enemy.z + 1),
     dx: 0, dz: 1
@@ -449,9 +478,10 @@ export async function executeEnemyMovementPhase() {
     const action = chooseBestAction(enemy, priorAttackTiles);
 
     if (action.destX !== enemy.x || action.destZ !== enemy.z) {
+      const path = findPath(enemy.x, enemy.z, action.destX, action.destZ, { allowPool: true });
       enemy.x = action.destX;
       enemy.z = action.destZ;
-      await new Promise(resolve => moveUnitMeshSmooth(enemy, action.destX, action.destZ, resolve));
+      await new Promise(resolve => moveUnitMeshSmooth(enemy, action.destX, action.destZ, resolve, path));
       await sleep(100);
     }
 
@@ -465,6 +495,9 @@ export async function executeEnemyMovementPhase() {
     } else {
       enemy.dataOverload = false;
     }
+
+    enemy.lastTargetX = action.targetX;
+    enemy.lastTargetZ = action.targetZ;
 
     enemy.intent = {
       targetX: action.targetX,
