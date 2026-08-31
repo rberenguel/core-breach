@@ -419,7 +419,6 @@ export async function executeEnemyPhase() {
   }
 
   gameState.round++;
-  gameState.difficulty = getDifficultyForRound(gameState.round);
   if (gameState.round > gameState.maxRounds) {
     triggerVictory();
     return;

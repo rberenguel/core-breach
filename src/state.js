@@ -12,6 +12,7 @@ export const gameState = {
   seed: 0,
   round: 1,
   maxRounds: 5,
+  battleCount: 1,
   difficulty: 'EASY',
   phase: 'PLAYER_TURN',
   board: [],

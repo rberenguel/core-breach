@@ -100,7 +100,7 @@ export function generateProceduralLevel() {
   gameState.selectedUnit = null;
   gameState.moveHistory = null;
   gameState.round = 1;
-  gameState.difficulty = getDifficultyForRound(1);
+  gameState.difficulty = getDifficultyForRound(gameState.battleCount);
   gameState.phase = 'PLAYER_TURN';
 
   clearHighlights();

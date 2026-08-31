@@ -159,6 +159,7 @@ document.getElementById('btn-copy-link').addEventListener('click', () => {
 
 document.getElementById('btn-modal-restart').addEventListener('click', () => {
   document.getElementById('modal-screen').classList.add('opacity-0', 'pointer-events-none');
+  gameState.battleCount++;
   newSeed();
 });
 
