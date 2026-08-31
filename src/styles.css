@@ -117,6 +117,9 @@ button {
 }
 
 @media (max-width: 767px) {
+  #game-footer {
+  bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+  }
   #unit-card {
     padding: 0.5rem;
   }

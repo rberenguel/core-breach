@@ -1,4 +1,4 @@
-const CACHE = 'core-breach-v0.1.1';
+const CACHE = 'core-breach-v0.1.2';
 const PRECACHE = [
   './',
   './index.html',
