@@ -61,6 +61,17 @@ export const UNIT_TYPES = {
     actDesc: '1 DMG LINE + PUSH TARGET',
     rangeType: 'LINE'
   },
+  ROCKET: {
+    id: 'ROCKET',
+    name: 'ROCKET',
+    faction: FACTION.PLAYER,
+    hp: 2,
+    maxHp: 2,
+    move: 3,
+    actName: 'MISSILE',
+    actDesc: '2 DMG DIRECT AT RANGE',
+    rangeType: 'ROCKET'
+  },
   TANK: {
     id: 'TANK',
     name: 'TANK',
@@ -90,5 +101,15 @@ export const UNIT_TYPES = {
     move: 2,
     dmg: 1,
     pattern: 'RANGED_LOB'
+  },
+  CANNON: {
+    id: 'CANNON',
+    name: 'CANNON',
+    faction: FACTION.ENEMY,
+    hp: 2,
+    maxHp: 2,
+    move: 2,
+    dmg: 2,
+    pattern: 'RANGED_DIRECT'
   }
 };

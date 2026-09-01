@@ -23,7 +23,7 @@ export function applyKnockback(targetUnit, pushDx, pushDz) {
   const destCell = getCell(newX, newZ);
   const destUnit = getUnitAt(newX, newZ);
 
-  if (destCell.type === CELL_TYPE.CHASM) {
+  if (destCell.type === CELL_TYPE.CHASM && targetUnit.type !== 'FLIER' && targetUnit.type !== 'ROCKET') {
     targetUnit.x = newX;
     targetUnit.z = newZ;
     moveUnitMeshSmooth(targetUnit, newX, newZ, () => {
@@ -34,7 +34,7 @@ export function applyKnockback(targetUnit, pushDx, pushDz) {
     return;
   }
 
-  if (destCell.type === CELL_TYPE.POOL && targetUnit.type !== 'FLIER') {
+  if (destCell.type === CELL_TYPE.POOL && targetUnit.type !== 'FLIER' && targetUnit.type !== 'ROCKET') {
     targetUnit.x = newX;
     targetUnit.z = newZ;
     moveUnitMeshSmooth(targetUnit, newX, newZ, () => {
@@ -308,13 +308,19 @@ export function getReachableTiles(unit) {
       const key = `${nx},${nz}`;
       if (visited.has(key) || !isValidTile(nx, nz)) continue;
       const cell = getCell(nx, nz);
-      if (cell.type !== CELL_TYPE.EMPTY && cell.type !== CELL_TYPE.POOL) continue;
+      if (cell.type !== CELL_TYPE.EMPTY && cell.type !== CELL_TYPE.POOL && !(cell.type === CELL_TYPE.CHASM && (unit.type === 'FLIER' || unit.type === 'ROCKET'))) continue;
       if (getUnitAt(nx, nz)) continue;
       visited.add(key);
       queue.push({ x: nx, z: nz, steps: steps + 1 });
     }
   }
   return result;
+}
+
+function getEnemyMaxRange(enemy) {
+  if (enemy.type === 'MORTAR') return 3;
+  if (enemy.pattern === 'RANGED_DIRECT') return 4;
+  return 1;
 }
 
 function scoreAction(enemy, destX, destZ, tx, tz, dx, dz, priorAttackTiles) {
@@ -382,7 +388,8 @@ function pickFromCandidatePool(candidates, difficulty) {
 function chooseBestAction(enemy, priorAttackTiles) {
   const reachable = getReachableTiles(enemy);
   const DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-  const maxRange = enemy.type === 'MORTAR' ? 3 : 1;
+  const maxRange = getEnemyMaxRange(enemy);
+  const direct = enemy.pattern === 'RANGED_DIRECT';
   const candidates = [];
 
   for (const { x: destX, z: destZ } of reachable) {
@@ -392,6 +399,9 @@ function chooseBestAction(enemy, priorAttackTiles) {
         const tz = destZ + dz * r;
         if (!isValidTile(tx, tz)) break;
 
+        const cell = getCell(tx, tz);
+        const unit = getUnitAt(tx, tz);
+
         const score = scoreAction(enemy, destX, destZ, tx, tz, dx, dz, priorAttackTiles);
         candidates.push({
           destX, destZ,
@@ -399,6 +409,8 @@ function chooseBestAction(enemy, priorAttackTiles) {
           dx, dz,
           score
         });
+
+        if (direct && (unit || cell.type === CELL_TYPE.MOUNTAIN || cell.type === CELL_TYPE.CORE)) break;
       }
     }
   }
@@ -414,7 +426,8 @@ function chooseBestAction(enemy, priorAttackTiles) {
 
 function bestAttackFromTile(enemy, fromX, fromZ) {
   const DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-  const maxRange = enemy.type === 'MORTAR' ? 3 : 1;
+  const maxRange = getEnemyMaxRange(enemy);
+  const direct = enemy.pattern === 'RANGED_DIRECT';
   let bestScore = 0;
   let bestTarget = { x: fromX, z: Math.min(GRID_SIZE - 1, fromZ + 1), dx: 0, dz: 1 };
 
@@ -437,6 +450,8 @@ function bestAttackFromTile(enemy, fromX, fromZ) {
         bestScore = score;
         bestTarget = { x: tx, z: tz, dx, dz };
       }
+
+      if (direct && (unit || cell.type === CELL_TYPE.MOUNTAIN || cell.type === CELL_TYPE.CORE)) break;
     }
   }
 
@@ -464,6 +479,7 @@ export function recalculateEnemyIntents() {
 
     createTelegraphVisual(enemy);
   });
+
 }
 
 export async function executeEnemyMovementPhase() {
@@ -478,7 +494,7 @@ export async function executeEnemyMovementPhase() {
     const action = chooseBestAction(enemy, priorAttackTiles);
 
     if (action.destX !== enemy.x || action.destZ !== enemy.z) {
-      const path = findPath(enemy.x, enemy.z, action.destX, action.destZ, { allowPool: true });
+      const path = findPath(enemy.x, enemy.z, action.destX, action.destZ, enemy);
       enemy.x = action.destX;
       enemy.z = action.destZ;
       await new Promise(resolve => moveUnitMeshSmooth(enemy, action.destX, action.destZ, resolve, path));
@@ -486,7 +502,7 @@ export async function executeEnemyMovementPhase() {
     }
 
     const landCell = getCell(enemy.x, enemy.z);
-    if (landCell && landCell.type === CELL_TYPE.POOL && enemy.type !== 'FLIER') {
+    if (landCell && landCell.type === CELL_TYPE.POOL && enemy.type !== 'FLIER' && enemy.type !== 'ROCKET') {
       enemy.dataOverload = true;
       spawnFloatingText('DATA OVERLOAD!', enemy.mesh.position, '#00ccff');
       clearEnemyTelegraph(enemy);

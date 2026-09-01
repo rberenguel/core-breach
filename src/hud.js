@@ -34,7 +34,13 @@ export function updateHUD() {
     document.getElementById('unit-faction').className = (unit.faction === FACTION.PLAYER)
       ? 'text-[10px] uppercase font-mono-tech text-blue-400 tracking-wider font-bold'
       : 'text-[10px] uppercase font-mono-tech text-red-400 tracking-wider font-bold';
-    document.getElementById('unit-name').innerText = unit.name;
+    if (unit.faction === FACTION.ENEMY) {
+      const enemies = gameState.units.filter(u => u.alive && u.faction === FACTION.ENEMY);
+      const order = enemies.indexOf(unit) + 1;
+      document.getElementById('unit-name').innerHTML = unit.name + '<span class="text-yellow-400" style="margin-left:0.6em">#' + order + '</span>';
+    } else {
+      document.getElementById('unit-name').innerText = unit.name;
+    }
     document.getElementById('unit-hp-val').innerText = `${unit.hp}/${unit.maxHp}`;
     document.getElementById('unit-move-val').innerText = `${unit.move} TILES`;
 

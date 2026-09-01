@@ -201,10 +201,13 @@ function animate() {
   });
 
   gameState.units.forEach(u => {
-    if (u.alive && u.mesh && u.type === 'FLIER') {
+    if (u.alive && u.mesh && (u.type === 'FLIER' || u.type === 'ROCKET')) {
       u.mesh.position.y = Math.sin(elapsed * 4 + u.x) * 0.15;
       if (u.mesh.userData.diamond) {
         u.mesh.userData.diamond.rotation.y += delta * 2.0;
+      }
+      if (u.mesh.userData.body) {
+        u.mesh.userData.body.rotation.z = Math.sin(elapsed * 3 + u.z) * 0.08;
       }
     }
   });

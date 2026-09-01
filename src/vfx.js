@@ -257,3 +257,167 @@ export function spawnArcProjectile(startPos, endPos, onImpact) {
 
   requestAnimationFrame(fly);
 }
+
+export function spawnEnemyBolt(startPos, endPos, onImpact) {
+  const group = new THREE.Group();
+
+  const bodyGeo = new THREE.CylinderGeometry(0.07, 0.1, 0.45, 6);
+  bodyGeo.rotateX(Math.PI / 2);
+  const bodyMat = new THREE.MeshBasicMaterial({
+    color: 0xff2244, transparent: true, opacity: 1.0,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  group.add(body);
+
+  const glowGeo = new THREE.SphereGeometry(0.15, 8, 8);
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: 0xff0033, transparent: true, opacity: 0.5,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  const glow = new THREE.Mesh(glowGeo, glowMat);
+  group.add(glow);
+
+  const dir = new THREE.Vector3(endPos.x - startPos.x, 0, endPos.z - startPos.z);
+  dir.normalize();
+
+  group.position.set(startPos.x, 0.7, startPos.z);
+  group.rotation.y = Math.atan2(dir.x, dir.z);
+  scene.add(group);
+
+  const DURATION = 180;
+  const startTime = performance.now();
+
+  function fly() {
+    const t = Math.min(1, (performance.now() - startTime) / DURATION);
+    group.position.x = startPos.x + (endPos.x - startPos.x) * t;
+    group.position.z = startPos.z + (endPos.z - startPos.z) * t;
+
+    if (t < 1) {
+      for (let i = 0; i < 2; i++) {
+        const pGeo = new THREE.PlaneGeometry(0.07, 0.07);
+        const pMat = new THREE.MeshBasicMaterial({
+          color: Math.random() > 0.5 ? 0xff4466 : 0xff0022,
+          transparent: true, opacity: 0.7,
+          depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide
+        });
+        const p = new THREE.Mesh(pGeo, pMat);
+        const back = dir.clone().multiplyScalar(-(0.15 + Math.random() * 0.12));
+        p.position.copy(group.position).add(back);
+        p.position.y = 0.7 + (Math.random() - 0.5) * 0.08;
+        p.rotation.z = Math.random() * Math.PI;
+        scene.add(p);
+
+        const pStart = performance.now();
+        const pDur = 200 + Math.random() * 120;
+        function fade() {
+          const pt = Math.min(1, (performance.now() - pStart) / pDur);
+          p.scale.setScalar(1 - pt * 0.7);
+          pMat.opacity = 0.7 * (1 - pt);
+          if (pt < 1) requestAnimationFrame(fade);
+          else { scene.remove(p); pGeo.dispose(); pMat.dispose(); }
+        }
+        requestAnimationFrame(fade);
+      }
+    }
+
+    if (t < 1) {
+      requestAnimationFrame(fly);
+    } else {
+      scene.remove(group);
+      bodyGeo.dispose(); bodyMat.dispose();
+      glowGeo.dispose(); glowMat.dispose();
+      if (onImpact) onImpact();
+    }
+  }
+
+  requestAnimationFrame(fly);
+}
+
+export function spawnRocketProjectile(startPos, endPos, onImpact) {
+  const group = new THREE.Group();
+
+  const bodyGeo = new THREE.CylinderGeometry(0.08, 0.12, 0.5, 8);
+  bodyGeo.rotateX(Math.PI / 2);
+  const bodyMat = new THREE.MeshBasicMaterial({
+    color: 0xffdd44, transparent: true, opacity: 1.0,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  group.add(body);
+
+  const noseGeo = new THREE.ConeGeometry(0.08, 0.2, 8);
+  noseGeo.rotateX(Math.PI / 2);
+  const noseMat = new THREE.MeshBasicMaterial({
+    color: 0xffffff, transparent: true, opacity: 0.9,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  const nose = new THREE.Mesh(noseGeo, noseMat);
+  nose.position.z = 0.35;
+  group.add(nose);
+
+  const glowGeo = new THREE.SphereGeometry(0.18, 8, 8);
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: 0xff8800, transparent: true, opacity: 0.4,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  const glow = new THREE.Mesh(glowGeo, glowMat);
+  group.add(glow);
+
+  const dir = new THREE.Vector3(endPos.x - startPos.x, 0, endPos.z - startPos.z);
+  dir.normalize();
+
+  group.position.set(startPos.x, 0.7, startPos.z);
+  group.rotation.y = Math.atan2(dir.x, dir.z);
+  scene.add(group);
+
+  const DURATION = 220;
+  const startTime = performance.now();
+
+  function fly() {
+    const t = Math.min(1, (performance.now() - startTime) / DURATION);
+
+    group.position.x = startPos.x + (endPos.x - startPos.x) * t;
+    group.position.z = startPos.z + (endPos.z - startPos.z) * t;
+
+    if (t < 1) {
+      for (let i = 0; i < 2; i++) {
+        const pGeo = new THREE.PlaneGeometry(0.08, 0.08);
+        const pMat = new THREE.MeshBasicMaterial({
+          color: Math.random() > 0.5 ? 0xffaa00 : 0xff4400,
+          transparent: true, opacity: 0.7,
+          depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide
+        });
+        const p = new THREE.Mesh(pGeo, pMat);
+        const back = dir.clone().multiplyScalar(-(0.2 + Math.random() * 0.15));
+        p.position.copy(group.position).add(back);
+        p.position.y = 0.7 + (Math.random() - 0.5) * 0.1;
+        p.rotation.z = Math.random() * Math.PI;
+        scene.add(p);
+
+        const pStart = performance.now();
+        const pDur = 250 + Math.random() * 150;
+        function fade() {
+          const pt = Math.min(1, (performance.now() - pStart) / pDur);
+          p.scale.setScalar(1 - pt * 0.7);
+          pMat.opacity = 0.7 * (1 - pt);
+          if (pt < 1) requestAnimationFrame(fade);
+          else { scene.remove(p); pGeo.dispose(); pMat.dispose(); }
+        }
+        requestAnimationFrame(fade);
+      }
+    }
+
+    if (t < 1) {
+      requestAnimationFrame(fly);
+    } else {
+      scene.remove(group);
+      bodyGeo.dispose(); bodyMat.dispose();
+      noseGeo.dispose(); noseMat.dispose();
+      glowGeo.dispose(); glowMat.dispose();
+      if (onImpact) onImpact();
+    }
+  }
+
+  requestAnimationFrame(fly);
+}

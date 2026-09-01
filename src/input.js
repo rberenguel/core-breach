@@ -5,7 +5,7 @@ import { scene, camera, raycaster, mouse } from './scene.js';
 import { audio } from './audio.js';
 import { updateHUD } from './hud.js';
 import { clearHighlights, showMoveHighlights, showAttackHighlights, computeAttackOutcome, showAttackPreviewMarkers, clearAttackPreview } from './highlights.js';
-import { spawnFloatingText, spawnFireEffect, spawnExplosionEffect, spawnLaserBeamEffect, spawnArcProjectile } from './vfx.js';
+import { spawnFloatingText, spawnFireEffect, spawnExplosionEffect, spawnLaserBeamEffect, spawnArcProjectile, spawnRocketProjectile, spawnEnemyBolt } from './vfx.js';
 import { moveUnitMeshSmooth, animatePunchMesh } from './animations.js';
 import { applyKnockback, damageUnit, damageCore, damageMountain, recalculateEnemyIntents, clearTelegraphs, triggerVictory, executeEnemyMovementPhase } from './combat.js';
 import { spawnUnit, addSpawner } from './map.js';
@@ -186,7 +186,7 @@ export function handlePreciseGridClick() {
 
 export function executePlayerMove(unit, destX, destZ) {
   gameState.moveHistory = { unit: unit, origX: unit.x, origZ: unit.z };
-  const path = findPath(unit.x, unit.z, destX, destZ, { allowPool: false });
+  const path = findPath(unit.x, unit.z, destX, destZ, unit);
 
   unit.x = destX;
   unit.z = destZ;
@@ -195,7 +195,7 @@ export function executePlayerMove(unit, destX, destZ) {
 
   moveUnitMeshSmooth(unit, destX, destZ, () => {
     const destCell = getCell(destX, destZ);
-    if (destCell && destCell.type === CELL_TYPE.POOL && unit.type !== 'FLIER') {
+    if (destCell && destCell.type === CELL_TYPE.POOL && unit.type !== 'FLIER' && unit.type !== 'ROCKET') {
       unit.dataOverload = true;
       spawnFloatingText('DATA OVERLOAD!', unit.mesh.position, '#00ccff');
     } else {
@@ -211,7 +211,7 @@ export function executePlayerMove(unit, destX, destZ) {
 export function undoPlayerMove() {
   if (!gameState.moveHistory || gameState.moveHistory.unit.hasActed) return;
   const { unit, origX, origZ } = gameState.moveHistory;
-  const path = findPath(unit.x, unit.z, origX, origZ, { allowPool: false });
+  const path = findPath(unit.x, unit.z, origX, origZ, unit);
   unit.x = origX;
   unit.z = origZ;
   unit.hasMoved = false;
@@ -303,6 +303,31 @@ export function executePlayerAttack(unit, targetX, targetZ, dirX, dirZ) {
       }
       if (lx === targetX && lz === targetZ) break;
     }
+  } else if (unit.type === 'ROCKET') {
+    audio.playMortar();
+    let impactX = targetX, impactZ = targetZ;
+    for (let r = 2; r <= 5; r++) {
+      const lx = unit.x + dirX * r, lz = unit.z + dirZ * r;
+      if (!isValidTile(lx, lz)) break;
+      const cell = getCell(lx, lz);
+      const u = getUnitAt(lx, lz);
+      if (u || cell.type === CELL_TYPE.MOUNTAIN || cell.type === CELL_TYPE.CORE) {
+        impactX = lx; impactZ = lz;
+        break;
+      }
+      if (lx === targetX && lz === targetZ) break;
+    }
+    const startPos = gridToWorld(unit.x, unit.z);
+    const endPos = gridToWorld(impactX, impactZ);
+    spawnRocketProjectile(startPos, endPos, () => {
+      spawnExplosionEffect(endPos.x, endPos.z);
+      spawnFireEffect(endPos.x, 0.5, endPos.z, 20);
+      const targetUnit = getUnitAt(impactX, impactZ);
+      const targetCell = getCell(impactX, impactZ);
+      if (targetUnit) damageUnit(targetUnit, 2);
+      if (targetCell && targetCell.type === CELL_TYPE.MOUNTAIN) damageMountain(targetCell, 2);
+      if (targetCell && targetCell.type === CELL_TYPE.CORE) damageCore(targetCell, 2);
+    });
   }
 
   deselectUnit();
@@ -341,7 +366,7 @@ export async function executeEnemyPhase() {
     const targetUnit = getUnitAt(intent.targetX, intent.targetZ);
     const targetCell = getCell(intent.targetX, intent.targetZ);
 
-    if (enemy.type === 'MORTAR') {
+    if (enemy.pattern === 'RANGED_LOB') {
       audio.playMortar();
       const startPos = gridToWorld(enemy.x, enemy.z);
       const centerPos = gridToWorld(intent.targetX, intent.targetZ);
@@ -368,6 +393,32 @@ export async function executeEnemyPhase() {
         });
       });
       await sleep(600);
+    } else if (enemy.pattern === 'RANGED_DIRECT') {
+      audio.playLaser();
+      let impactX = intent.targetX, impactZ = intent.targetZ;
+      for (let r = 1; r <= 4; r++) {
+        const lx = enemy.x + intent.dx * r, lz = enemy.z + intent.dz * r;
+        if (!isValidTile(lx, lz)) break;
+        const cell = getCell(lx, lz);
+        const u = getUnitAt(lx, lz);
+        if (u || cell.type === CELL_TYPE.MOUNTAIN || cell.type === CELL_TYPE.CORE) {
+          impactX = lx; impactZ = lz;
+          break;
+        }
+        if (lx === intent.targetX && lz === intent.targetZ) break;
+      }
+      const startPos = gridToWorld(enemy.x, enemy.z);
+      const centerPos = gridToWorld(impactX, impactZ);
+      const hitUnit = getUnitAt(impactX, impactZ);
+      const hitCell = getCell(impactX, impactZ);
+      spawnEnemyBolt(startPos, centerPos, () => {
+        spawnExplosionEffect(centerPos.x, centerPos.z);
+        spawnFireEffect(centerPos.x, 0.5, centerPos.z, 20);
+        if (hitUnit) damageUnit(hitUnit, intent.damage);
+        if (hitCell && hitCell.type === CELL_TYPE.MOUNTAIN) damageMountain(hitCell, intent.damage);
+        if (hitCell && hitCell.type === CELL_TYPE.CORE) damageCore(hitCell, intent.damage);
+      });
+      await sleep(500);
     } else {
       animatePunchMesh(enemy.mesh);
       audio.playPunch();
@@ -403,7 +454,7 @@ export async function executeEnemyPhase() {
     } else {
       scene.remove(sp.mesh);
       gameState.spawners.splice(i, 1);
-      const bugTypes = [UNIT_TYPES.TANK, UNIT_TYPES.FLIER, UNIT_TYPES.MORTAR];
+      const bugTypes = [UNIT_TYPES.TANK, UNIT_TYPES.FLIER, UNIT_TYPES.MORTAR, UNIT_TYPES.CANNON];
       const newType = bugTypes[Math.floor(rng.random() * bugTypes.length)];
       const newEnemy = spawnUnit(newType, sp.x, sp.z, Math.PI);
       newEnemy.justSpawned = true;
@@ -429,7 +480,7 @@ export async function executeEnemyPhase() {
       u.hasMoved = false;
       u.hasActed = false;
       const cell = getCell(u.x, u.z);
-      if (!cell || cell.type !== CELL_TYPE.POOL || u.type === 'FLIER') {
+      if (!cell || cell.type !== CELL_TYPE.POOL || u.type === 'FLIER' || u.type === 'ROCKET') {
         u.dataOverload = false;
       }
     }

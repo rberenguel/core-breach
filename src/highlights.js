@@ -27,7 +27,9 @@ export function showMoveHighlights(unit) {
           visited.add(key);
           const cell = getCell(nx, nz);
           const occUnit = getUnitAt(nx, nz);
-          if (cell.type === CELL_TYPE.EMPTY && !occUnit) {
+          const flies = unit.type === 'FLIER' || unit.type === 'ROCKET';
+          const passable = (cell.type === CELL_TYPE.EMPTY || cell.type === CELL_TYPE.POOL || (flies && cell.type === CELL_TYPE.CHASM)) && !occUnit;
+          if (passable) {
             reachable.push({ x: nx, z: nz });
             queue.push({ x: nx, z: nz, dist: cur.dist + 1 });
           }
@@ -78,7 +80,7 @@ export function showAttackHighlights(unit) {
       const nz = unit.z + d.z;
       if (isValidTile(nx, nz)) attackTiles.push({ x: nx, z: nz, dx: d.x, dz: d.z });
     });
-  } else if (unit.rangeType === 'MORTAR') {
+  } else if (unit.rangeType === 'MORTAR' || unit.rangeType === 'ROCKET') {
     const dirs = [{ x: 1, z: 0 }, { x: -1, z: 0 }, { x: 0, z: 1 }, { x: 0, z: -1 }];
     dirs.forEach(d => {
       for (let r = 2; r <= 5; r++) {
@@ -138,8 +140,8 @@ export function computeAttackOutcome(unit, tx, tz, dx, dz) {
     if (!isValidTile(nx, nz)) return { x: u.x, z: u.z, pdx, pdz, fate: 'EDGE' };
     const cell = getCell(nx, nz);
     const occ = gameState.units.find(o => o.alive && o.x === nx && o.z === nz && o !== u);
-    if (cell.type === CELL_TYPE.CHASM) return { x: nx, z: nz, pdx, pdz, fate: 'FALL' };
-    if (cell.type === CELL_TYPE.POOL && u.type !== 'FLIER') return { x: nx, z: nz, pdx, pdz, fate: 'OVERLOAD' };
+    if (cell.type === CELL_TYPE.CHASM && u.type !== 'FLIER' && u.type !== 'ROCKET') return { x: nx, z: nz, pdx, pdz, fate: 'FALL' };
+    if (cell.type === CELL_TYPE.POOL && u.type !== 'FLIER' && u.type !== 'ROCKET') return { x: nx, z: nz, pdx, pdz, fate: 'OVERLOAD' };
     if (occ || cell.type === CELL_TYPE.MOUNTAIN || cell.type === CELL_TYPE.CORE) return { x: u.x, z: u.z, pdx, pdz, fate: 'BLOCKED' };
     return { x: nx, z: nz, pdx, pdz, fate: 'PUSH' };
   }
@@ -173,6 +175,22 @@ export function computeAttackOutcome(unit, tx, tz, dx, dz) {
       if (!isValidTile(lx, lz)) break;
       const u = getUnitAt(lx, lz);
       if (u) addHit(u, 1, dx, dz);
+      if (lx === tx && lz === tz) break;
+    }
+  } else if (unit.type === 'ROCKET') {
+    for (let r = 2; r <= 5; r++) {
+      const lx = unit.x + dx * r, lz = unit.z + dz * r;
+      if (!isValidTile(lx, lz)) break;
+      const cell = getCell(lx, lz);
+      const u = getUnitAt(lx, lz);
+      if (u || cell.type === CELL_TYPE.MOUNTAIN || cell.type === CELL_TYPE.CORE) {
+        if (u) {
+          const dmg = 2;
+          const newHp = Math.max(0, u.hp - dmg);
+          hits.push({ unit: u, damage: dmg, newHp, dies: newHp <= 0, push: null, fate: newHp <= 0 ? 'KILL' : 'HIT' });
+        }
+        break;
+      }
       if (lx === tx && lz === tz) break;
     }
   }

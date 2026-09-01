@@ -325,14 +325,41 @@ export function createSpitterMesh() {
   return group;
 }
 
+export function createRocketMesh() {
+  const group = new THREE.Group();
+  const geo = new THREE.SphereGeometry(0.65, 16, 12);
+  const mat = Materials.playerBlue.clone();
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.scale.set(0.5, 0.35, 1.0);
+  mesh.position.y = 0.25;
+  mesh.castShadow = true;
+  group.add(mesh);
+  group.userData.body = mesh;
+  return group;
+}
+
+export function createCannonMesh() {
+  const group = new THREE.Group();
+  const geo = new THREE.ConeGeometry(0.75, 0.9, 4);
+  geo.rotateY(Math.PI / 4);
+  const mat = Materials.enemyRed.clone();
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.y = 0.45;
+  mesh.castShadow = true;
+  group.add(mesh);
+  return group;
+}
+
 export function createUnitMeshByType(typeId) {
   switch (typeId) {
     case 'STRIKER':   return createStrikerMesh();
     case 'ARTILLERY': return createArtilleryMesh();
     case 'RAILGUN':   return createLaserTankMesh();
+    case 'ROCKET':    return createRocketMesh();
     case 'TANK':      return createScarabMesh();
     case 'FLIER':     return createHornetMesh();
     case 'MORTAR':    return createSpitterMesh();
+    case 'CANNON':    return createCannonMesh();
     default:          return createStrikerMesh();
   }
 }

@@ -1,7 +1,7 @@
 {
   "name": "Core Breach",
   "short_name": "Core Breach",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Tactical hex grid combat game",
   "icons": [
     {

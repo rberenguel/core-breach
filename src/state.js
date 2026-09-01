@@ -49,8 +49,8 @@ export function getUnitAt(gx, gz) {
   return gameState.units.find(u => u.x === gx && u.z === gz && u.alive);
 }
 
-export function findPath(startX, startZ, destX, destZ, options = {}) {
-  const { allowPool = false } = options;
+export function findPath(startX, startZ, destX, destZ, unit) {
+  const flies = unit && (unit.type === 'FLIER' || unit.type === 'ROCKET');
   const queue = [{ x: startX, z: startZ, path: [{ x: startX, z: startZ }] }];
   const visited = new Set([`${startX},${startZ}`]);
 
@@ -71,10 +71,10 @@ export function findPath(startX, startZ, destX, destZ, options = {}) {
       const occUnit = getUnitAt(nx, nz);
 
       let passable = false;
-      if (allowPool) {
-        passable = (cell.type === CELL_TYPE.EMPTY || cell.type === CELL_TYPE.POOL) && !occUnit;
+      if (flies) {
+        passable = (cell.type === CELL_TYPE.EMPTY || cell.type === CELL_TYPE.POOL || cell.type === CELL_TYPE.CHASM) && !occUnit;
       } else {
-        passable = cell.type === CELL_TYPE.EMPTY && !occUnit;
+        passable = (cell.type === CELL_TYPE.EMPTY || cell.type === CELL_TYPE.POOL) && !occUnit;
       }
 
       if (passable) {

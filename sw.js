@@ -1,4 +1,4 @@
-const CACHE = 'core-breach-v0.2.2';
+const CACHE = 'core-breach-v0.3.0';
 const PRECACHE = [
   './',
   './index.html',
@@ -15,6 +15,7 @@ const PRECACHE = [
   './src/rng.js',
   './src/scene.js',
   './src/state.js',
+  './src/vfx.js',
   './src/styles.css',
   './fonts/fonts.css',
   './fonts/Orbitron-VariableFont_wght.ttf',
@@ -22,6 +23,7 @@ const PRECACHE = [
   './fonts/phosphor.css',
   './fonts/Phosphor-Light.woff2',
   './libs/three.min.js',
+  './libs/interact.min.js',
   './libs/utils.css',
   './icon.jpeg',
   './favicon.ico',
