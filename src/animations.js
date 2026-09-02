@@ -151,3 +151,20 @@ export function scaleDownAndRemove(mesh, callback) {
   }
   requestAnimationFrame(step);
 }
+
+export function fallIntoChasm(mesh, callback) {
+  const startTime = performance.now();
+  const duration = 600;
+  const startY = mesh.position.y;
+  function step(now) {
+    const elapsed = now - startTime;
+    const t = Math.min(1, elapsed / duration);
+    const ease = t * t; // accelerate
+    const s = 1 - ease * 0.95;
+    mesh.scale.set(s, s, s);
+    mesh.position.y = startY - ease * 2.5;
+    if (t < 1) requestAnimationFrame(step);
+    else if (callback) callback();
+  }
+  requestAnimationFrame(step);
+}

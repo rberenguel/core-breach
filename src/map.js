@@ -1,4 +1,4 @@
-import { GRID_SIZE, TILE_SIZE, CELL_TYPE, UNIT_TYPES, FACTION, getDifficultyForRound } from './config.js';
+import { GRID_SIZE, TILE_SIZE, CELL_TYPE, UNIT_TYPES, FACTION, getDifficultyForRound, getLevelScaling } from './config.js';
 import { gameState, getCell, getUnitAt, gridToWorld, isValidTile, nextUnitId, resetUnitIdCounter } from './state.js';
 import { rng } from './rng.js';
 import { scene } from './scene.js';
@@ -40,18 +40,20 @@ export function spawnUnit(template, gx, gz, rotY = 0) {
   mesh.rotation.y = rotY;
   scene.add(mesh);
 
+  const hpBonus = (template.faction === FACTION.ENEMY && gameState.enemyHpBonus) ? gameState.enemyHpBonus : 0;
   const unit = {
     id: nextUnitId(),
     type: template.id,
     name: template.name,
     faction: template.faction,
-    hp: template.hp,
-    maxHp: template.maxHp,
+    hp: template.hp + hpBonus,
+    maxHp: template.maxHp + hpBonus,
     move: template.move,
     actName: template.actName || 'STRIKE',
     actDesc: template.actDesc || '',
     rangeType: template.rangeType || 'MELEE',
     pattern: template.pattern || 'MELEE',
+    dmg: template.dmg || 1,
     x: gx,
     z: gz,
     alive: true,
@@ -101,6 +103,8 @@ export function generateProceduralLevel() {
   gameState.moveHistory = null;
   gameState.round = 1;
   gameState.difficulty = getDifficultyForRound(gameState.battleCount);
+  const scaling = getLevelScaling(gameState.battleCount);
+  gameState.enemyHpBonus = scaling.enemyHpBonus;
   gameState.phase = 'PLAYER_TURN';
 
   clearHighlights();
@@ -112,14 +116,16 @@ export function generateProceduralLevel() {
     const cx = 1 + Math.floor(rng.random() * 6);
     const cz = 3 + Math.floor(rng.random() * 3);
     const cell = getCell(cx, cz);
-    if (cell.type === CELL_TYPE.EMPTY) {
-      cell.type = CELL_TYPE.CORE;
-      cell.hp = 2;
-      cell.maxHp = 2;
-      cell.id = `CORE_${coresPlaced + 1}`;
-      gameState.cores.push(cell);
-      coresPlaced++;
-    }
+    if (cell.type !== CELL_TYPE.EMPTY) continue;
+    // reject if any existing core is diagonally adjacent
+    const diagConflict = gameState.cores.some(c => Math.abs(c.x - cx) === 1 && Math.abs(c.z - cz) === 1);
+    if (diagConflict) continue;
+    cell.type = CELL_TYPE.CORE;
+    cell.hp = scaling.coreHp;
+    cell.maxHp = scaling.coreHp;
+    cell.id = `CORE_${coresPlaced + 1}`;
+    gameState.cores.push(cell);
+    coresPlaced++;
   }
 
   // 2. Mountains (2–5 obstacles)
@@ -251,27 +257,28 @@ export function generateProceduralLevel() {
     spawnUnit(cfg, playerXs[idx], 7, playerRots[idx]);
   });
 
-  // 6. Spawn 3 Red Enemy Units (random pick from 4)
+  // 6. Spawn Red Enemy Units (random pick from 4, count scales with level)
+  const enemyCount = 3 + scaling.extraEnemies;
   const allEnemyConfigs = [UNIT_TYPES.TANK, UNIT_TYPES.FLIER, UNIT_TYPES.MORTAR, UNIT_TYPES.CANNON];
   for (let i = allEnemyConfigs.length - 1; i > 0; i--) {
     const j = Math.floor(rng.random() * (i + 1));
     [allEnemyConfigs[i], allEnemyConfigs[j]] = [allEnemyConfigs[j], allEnemyConfigs[i]];
   }
-  const enemyConfigs = allEnemyConfigs.slice(0, 3);
   let enemiesSpawned = 0;
-  while (enemiesSpawned < 3) {
+  while (enemiesSpawned < enemyCount) {
     const ex = Math.floor(rng.random() * GRID_SIZE);
     const ez = Math.floor(rng.random() * 3);
     const cell = getCell(ex, ez);
     if (cell.type === CELL_TYPE.EMPTY && !getUnitAt(ex, ez)) {
-      spawnUnit(enemyConfigs[enemiesSpawned], ex, ez, Math.PI);
+      const cfg = enemiesSpawned < allEnemyConfigs.length ? allEnemyConfigs[enemiesSpawned] : allEnemyConfigs[Math.floor(rng.random() * allEnemyConfigs.length)];
+      spawnUnit(cfg, ex, ez, Math.PI);
       enemiesSpawned++;
     }
   }
 
   // 7. Tactical Spawners
-  addSpawner();
-  addSpawner();
+  const spawnerCount = 2 + scaling.extraSpawners;
+  for (let s = 0; s < spawnerCount; s++) addSpawner();
 
   updateHUD();
   recalculateEnemyIntents();

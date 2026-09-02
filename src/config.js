@@ -14,6 +14,15 @@ export function getDifficultyForRound(round) {
   return DIFFICULTY.HARD;
 }
 
+export function getLevelScaling(battleCount) {
+  return {
+    extraEnemies: Math.min(2, Math.floor(battleCount / 2)),
+    extraSpawners: Math.min(2, Math.floor((battleCount + 1) / 3)),
+    enemyHpBonus: Math.min(1, Math.floor(battleCount / 6)),
+    coreHp: battleCount >= 5 ? 1 : 2
+  };
+}
+
 export const FACTION = {
   PLAYER: 'PLAYER',
   ENEMY: 'ENEMY'

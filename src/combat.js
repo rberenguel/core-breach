@@ -4,7 +4,7 @@ import { scene } from './scene.js';
 import { rng } from './rng.js';
 import { audio } from './audio.js';
 import { spawnFloatingText, spawnFireEffect } from './vfx.js';
-import { moveUnitMeshSmooth, flashMeshColor, scaleDownAndRemove } from './animations.js';
+import { moveUnitMeshSmooth, flashMeshColor, scaleDownAndRemove, fallIntoChasm } from './animations.js';
 import { updateHUD } from './hud.js';
 import { Materials, createMountainMesh, createRubbleMesh } from './materials.js';
 
@@ -28,8 +28,9 @@ export function applyKnockback(targetUnit, pushDx, pushDz) {
     targetUnit.z = newZ;
     moveUnitMeshSmooth(targetUnit, newX, newZ, () => {
       spawnFloatingText('PITFALL!', targetUnit.mesh.position, '#ff0033');
-      spawnFireEffect(targetUnit.mesh.position.x, 0, targetUnit.mesh.position.z, 25);
-      damageUnit(targetUnit, 999);
+      fallIntoChasm(targetUnit.mesh, () => {
+        damageUnit(targetUnit, 999);
+      });
     });
     return;
   }
@@ -270,6 +271,14 @@ export function createTelegraphVisual(enemy) {
       arc.userData.unitId = enemy.id;
       scene.add(arc);
       gameState.telegraphMarkers.push(arc);
+    } else if (enemy.pattern === 'RANGED_DIRECT') {
+      const lineCurve = new THREE.LineCurve3(start3, end3);
+      const lineGeo = new THREE.TubeGeometry(lineCurve, 8, 0.05, 6, false);
+      const lineMat = new THREE.MeshBasicMaterial({ color: 0xff0033, transparent: true, opacity: 0.75 });
+      const line = new THREE.Mesh(lineGeo, lineMat);
+      line.userData.unitId = enemy.id;
+      scene.add(line);
+      gameState.telegraphMarkers.push(line);
     } else {
       const dir = end3.clone().sub(start3).normalize();
       const mat = new THREE.MeshBasicMaterial({ color: 0xff0033, transparent: true, opacity: 0.75 });
@@ -470,7 +479,7 @@ export function recalculateEnemyIntents() {
       targetZ: target.z,
       dx: target.dx,
       dz: target.dz,
-      damage: enemy.type === 'TANK' ? 2 : 1
+      damage: enemy.dmg || 1
     };
 
     if (target.dx !== 0 || target.dz !== 0) {
@@ -489,7 +498,7 @@ export async function executeEnemyMovementPhase() {
   clearTelegraphs();
 
   for (const enemy of enemies) {
-    if (!enemy.alive || enemy.justSpawned) continue;
+    if (!enemy.alive) continue;
 
     const action = chooseBestAction(enemy, priorAttackTiles);
 
@@ -520,7 +529,7 @@ export async function executeEnemyMovementPhase() {
       targetZ: action.targetZ,
       dx: action.dx,
       dz: action.dz,
-      damage: enemy.type === 'TANK' ? 2 : 1
+      damage: enemy.dmg || 1
     };
 
     if (action.dx !== 0 || action.dz !== 0) {
@@ -535,16 +544,6 @@ export async function executeEnemyMovementPhase() {
 
   for (const enemy of enemies) {
     if (!enemy.alive || !enemy.justSpawned) continue;
-    const target = bestAttackFromTile(enemy, enemy.x, enemy.z);
-    enemy.intent = {
-      targetX: target.x, targetZ: target.z,
-      dx: target.dx, dz: target.dz,
-      damage: enemy.type === 'TANK' ? 2 : 1
-    };
-    if (target.dx !== 0 || target.dz !== 0) {
-      enemy.mesh.rotation.y = Math.atan2(target.dx, target.dz);
-    }
-    createTelegraphVisual(enemy);
     enemy.justSpawned = false;
   }
 }

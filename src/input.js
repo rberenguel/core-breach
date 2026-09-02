@@ -4,7 +4,7 @@ import { rng } from './rng.js';
 import { scene, camera, raycaster, mouse } from './scene.js';
 import { audio } from './audio.js';
 import { updateHUD } from './hud.js';
-import { clearHighlights, showMoveHighlights, showAttackHighlights, computeAttackOutcome, showAttackPreviewMarkers, clearAttackPreview } from './highlights.js';
+import { clearHighlights, showMoveHighlights, showAttackHighlights, showEnemyAttackHighlights, computeAttackOutcome, showAttackPreviewMarkers, clearAttackPreview } from './highlights.js';
 import { spawnFloatingText, spawnFireEffect, spawnExplosionEffect, spawnLaserBeamEffect, spawnArcProjectile, spawnRocketProjectile, spawnEnemyBolt } from './vfx.js';
 import { moveUnitMeshSmooth, animatePunchMesh } from './animations.js';
 import { applyKnockback, damageUnit, damageCore, damageMountain, recalculateEnemyIntents, clearTelegraphs, triggerVictory, executeEnemyMovementPhase } from './combat.js';
@@ -24,7 +24,7 @@ export function selectUnit(unit) {
     else if (!unit.hasActed) showAttackHighlights(unit);
     else clearHighlights();
   } else {
-    clearHighlights();
+    showEnemyAttackHighlights(unit);
   }
 
   updateHUD();
@@ -306,7 +306,7 @@ export function executePlayerAttack(unit, targetX, targetZ, dirX, dirZ) {
   } else if (unit.type === 'ROCKET') {
     audio.playMortar();
     let impactX = targetX, impactZ = targetZ;
-    for (let r = 2; r <= 5; r++) {
+    for (let r = 1; r <= 5; r++) {
       const lx = unit.x + dirX * r, lz = unit.z + dirZ * r;
       if (!isValidTile(lx, lz)) break;
       const cell = getCell(lx, lz);
@@ -359,6 +359,13 @@ export async function executeEnemyPhase() {
       enemy.dataOverload = false;
       spawnFloatingText('OVERLOADED — NO ATTACK', enemy.mesh.position, '#00ccff');
       await sleep(400);
+      continue;
+    }
+
+    if (enemy.skipAttack) {
+      enemy.skipAttack = false;
+      spawnFloatingText('ARRIVED', enemy.mesh.position, '#ff8800');
+      await sleep(200);
       continue;
     }
 
@@ -458,6 +465,7 @@ export async function executeEnemyPhase() {
       const newType = bugTypes[Math.floor(rng.random() * bugTypes.length)];
       const newEnemy = spawnUnit(newType, sp.x, sp.z, Math.PI);
       newEnemy.justSpawned = true;
+      newEnemy.skipAttack = true;
       spawnFloatingText('EMERGED!', newEnemy.mesh.position, '#ff0033');
       spawnFireEffect(newEnemy.mesh.position.x, 0.5, newEnemy.mesh.position.z, 25);
       audio.playExplosion();

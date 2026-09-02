@@ -83,7 +83,7 @@ export function showAttackHighlights(unit) {
   } else if (unit.rangeType === 'MORTAR' || unit.rangeType === 'ROCKET') {
     const dirs = [{ x: 1, z: 0 }, { x: -1, z: 0 }, { x: 0, z: 1 }, { x: 0, z: -1 }];
     dirs.forEach(d => {
-      for (let r = 2; r <= 5; r++) {
+      for (let r = 1; r <= 5; r++) {
         const nx = unit.x + d.x * r;
         const nz = unit.z + d.z * r;
         if (isValidTile(nx, nz)) attackTiles.push({ x: nx, z: nz, dx: d.x, dz: d.z });
@@ -178,7 +178,7 @@ export function computeAttackOutcome(unit, tx, tz, dx, dz) {
       if (lx === tx && lz === tz) break;
     }
   } else if (unit.type === 'ROCKET') {
-    for (let r = 2; r <= 5; r++) {
+    for (let r = 1; r <= 5; r++) {
       const lx = unit.x + dx * r, lz = unit.z + dz * r;
       if (!isValidTile(lx, lz)) break;
       const cell = getCell(lx, lz);
@@ -241,6 +241,66 @@ export function showAttackPreviewMarkers(outcomes, tx, tz) {
       scene.add(disk);
       gameState.previewMarkers.push(disk);
     }
+  });
+}
+
+export function showEnemyAttackHighlights(enemy) {
+  clearHighlights();
+  if (!enemy || !enemy.alive) return;
+
+  const attackTiles = [];
+  const DIRS = [{ x: 1, z: 0 }, { x: -1, z: 0 }, { x: 0, z: 1 }, { x: 0, z: -1 }];
+
+  if (enemy.pattern === 'MELEE_PUSH' || enemy.pattern === 'STAB') {
+    DIRS.forEach(d => {
+      const nx = enemy.x + d.x;
+      const nz = enemy.z + d.z;
+      if (isValidTile(nx, nz)) attackTiles.push({ x: nx, z: nz, dx: d.x, dz: d.z });
+    });
+  } else if (enemy.pattern === 'RANGED_LOB') {
+    DIRS.forEach(d => {
+      for (let r = 2; r <= 3; r++) {
+        const nx = enemy.x + d.x * r;
+        const nz = enemy.z + d.z * r;
+        if (isValidTile(nx, nz)) attackTiles.push({ x: nx, z: nz, dx: d.x, dz: d.z });
+      }
+    });
+  } else if (enemy.pattern === 'RANGED_DIRECT') {
+    DIRS.forEach(d => {
+      for (let r = 1; r <= 4; r++) {
+        const nx = enemy.x + d.x * r;
+        const nz = enemy.z + d.z * r;
+        if (isValidTile(nx, nz)) attackTiles.push({ x: nx, z: nz, dx: d.x, dz: d.z });
+      }
+    });
+  }
+
+  attackTiles.forEach(t => {
+    const pos = gridToWorld(t.x, t.z);
+    const group = new THREE.Group();
+
+    const planeGeo = new THREE.PlaneGeometry(TILE_SIZE * 0.94, TILE_SIZE * 0.94);
+    planeGeo.rotateX(-Math.PI / 2);
+    const planeMat = new THREE.MeshBasicMaterial({
+      color: 0xff0033,
+      transparent: true,
+      opacity: 0.6,
+      side: THREE.DoubleSide
+    });
+    const planeMesh = new THREE.Mesh(planeGeo, planeMat);
+    group.add(planeMesh);
+
+    const innerGeo = new THREE.PlaneGeometry(TILE_SIZE * 0.82, TILE_SIZE * 0.82);
+    innerGeo.rotateX(-Math.PI / 2);
+    const edges = new THREE.EdgesGeometry(innerGeo);
+    const edgeLine = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffaa00, linewidth: 2 }));
+    edgeLine.position.y = 0.02;
+    group.add(edgeLine);
+
+    group.position.set(pos.x, 0.08, pos.z);
+    group.userData = { isEnemyPattern: true, gridX: t.x, gridZ: t.z };
+    scene.add(group);
+    gameState.tileHighlights.push(group);
   });
 }
 
