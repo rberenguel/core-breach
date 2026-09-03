@@ -42,6 +42,9 @@ export function updateHUD() {
     document.getElementById('unit-dmg-val').innerText = unit.dmg != null ? unit.dmg : '—';
     document.getElementById('unit-move-val').innerText = `${unit.move} TILES`;
 
+    const effectRow = document.getElementById('unit-effect-row');
+    const effectVal = document.getElementById('unit-effect-val');
+
     const actStatus = document.getElementById('unit-action-status');
     if (unit.faction === FACTION.PLAYER) {
       if (gameState.attackPreview) {
@@ -54,9 +57,18 @@ export function updateHUD() {
         actStatus.innerText = unit.hasActed ? 'DONE' : (unit.hasMoved ? 'MOVE LOCKED' : 'READY');
         actStatus.className = unit.hasActed ? 'text-slate-400 font-bold' : 'text-blue-300 font-bold';
       }
+      effectRow.classList.add('hidden');
     } else {
       actStatus.innerText = unit.intent ? `TARGET (${unit.intent.targetX}, ${unit.intent.targetZ})` : 'IDLE';
       actStatus.className = 'text-red-400 font-bold';
+      const enemyEffects = {
+        'MELEE_PUSH': 'Melee attack + push target 1 tile.',
+        'STAB': 'Melee attack, no push.',
+        'RANGED_LOB': 'Lobbed projectile, 2–3 range, splash damage.',
+        'RANGED_DIRECT': 'Line projectile, 1–4 range, pierces through.'
+      };
+      effectVal.innerText = enemyEffects[unit.pattern] || unit.actDesc || '';
+      effectRow.classList.remove('hidden');
     }
 
     const actContainer = document.getElementById('action-container');
@@ -96,7 +108,16 @@ export function updateHUD() {
     document.getElementById('unit-name').innerText = tile.name;
     document.getElementById('unit-hp-val').innerText = tile.hp != null ? `${tile.hp}/${tile.maxHp}` : '—';
     document.getElementById('unit-dmg-val').innerText = '—';
-    document.getElementById('unit-move-val').innerText = tile.detail || '—';
+    document.getElementById('unit-move-val').innerText = '—';
+
+    const effectRow = document.getElementById('unit-effect-row');
+    const effectVal = document.getElementById('unit-effect-val');
+    if (tile.effect) {
+      effectVal.innerText = tile.effect;
+      effectRow.classList.remove('hidden');
+    } else {
+      effectRow.classList.add('hidden');
+    }
 
     const actStatus = document.getElementById('unit-action-status');
     actStatus.innerText = tile.status;
@@ -106,6 +127,8 @@ export function updateHUD() {
     document.getElementById('btn-undo-move').classList.add('hidden');
   } else {
     card.classList.add('hidden', 'pointer-events-none');
+    const effectRow = document.getElementById('unit-effect-row');
+    if (effectRow) effectRow.classList.add('hidden');
   }
 
   const btnEndTurn = document.getElementById('btn-end-turn');

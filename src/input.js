@@ -93,7 +93,7 @@ export function handleTileClick(gx, gz) {
         hp: cell.hp, maxHp: cell.maxHp,
         status: cell.hp > 1 ? 'INTACT' : 'DAMAGED',
         statusClass: cell.hp > 1 ? 'text-slate-300 font-bold' : 'text-yellow-400 font-bold',
-        detail: 'IMPASSABLE',
+        effect: 'Impassable terrain. Blocks line of sight.',
       });
       return;
     }
@@ -104,7 +104,7 @@ export function handleTileClick(gx, gz) {
         hp: cell.hp, maxHp: cell.maxHp,
         status: cell.hp > 0 ? 'ONLINE' : 'OFFLINE',
         statusClass: cell.hp > 0 ? 'text-emerald-300 font-bold' : 'text-red-400 font-bold',
-        detail: 'DEFEND',
+        effect: 'Defend at all costs. Lose all cores = game over.',
       });
       return;
     }
@@ -115,7 +115,7 @@ export function handleTileClick(gx, gz) {
         hp: null, maxHp: null,
         status: 'IMPASSABLE',
         statusClass: 'text-slate-400 font-bold',
-        detail: 'FALL HAZARD',
+        effect: 'Non-fliers that enter fall and die instantly.',
       });
       return;
     }
@@ -126,7 +126,7 @@ export function handleTileClick(gx, gz) {
         hp: null, maxHp: null,
         status: 'DATA OVERLOAD',
         statusClass: 'text-cyan-400 font-bold',
-        detail: 'CANCELS ATTACK',
+        effect: 'Cancels attack ability. Must move to clear.',
       });
       return;
     }
@@ -138,7 +138,7 @@ export function handleTileClick(gx, gz) {
         hp: null, maxHp: null,
         status: 'ACTIVE',
         statusClass: 'text-red-400 font-bold',
-        detail: 'ENEMY SOURCE',
+        effect: 'Consumes itself to spawn one enemy after enemy phase.',
       });
       return;
     }
@@ -284,21 +284,26 @@ export function executePlayerAttack(unit, targetX, targetZ, dirX, dirZ) {
     spawnLaserBeamEffect(startPos, endPos);
     spawnFireEffect(endPos.x, 0.65, endPos.z, 20);
 
+    // Collect targets first, then apply damage+knockback — otherwise a pushed
+    // unit can be hit again on a later loop iteration.
+    const railHits = [];
     for (let r = 1; r <= GRID_SIZE; r++) {
       const lx = unit.x + dirX * r, lz = unit.z + dirZ * r;
       if (!isValidTile(lx, lz)) break;
       const u = getUnitAt(lx, lz);
       const cell = getCell(lx, lz);
       if (u) {
-        damageUnit(u, unit.dmg);
-        applyKnockback(u, dirX, dirZ);
+        railHits.push(u);
       } else if (cell && cell.type === CELL_TYPE.MOUNTAIN) {
         damageMountain(cell, unit.dmg);
       } else if (cell && cell.type === CELL_TYPE.CORE) {
         damageCore(cell, unit.dmg);
       }
-      if (lx === targetX && lz === targetZ) break;
     }
+    railHits.forEach(u => {
+      damageUnit(u, unit.dmg);
+      applyKnockback(u, dirX, dirZ);
+    });
   } else if (unit.type === 'ROCKET') {
     audio.playMortar();
     let impactX = targetX, impactZ = targetZ;

@@ -175,7 +175,6 @@ export function computeAttackOutcome(unit, tx, tz, dx, dz) {
       if (!isValidTile(lx, lz)) break;
       const u = getUnitAt(lx, lz);
       if (u) addHit(u, unit.dmg, dx, dz);
-      if (lx === tx && lz === tz) break;
     }
   } else if (unit.type === 'ROCKET') {
     for (let r = 1; r <= 5; r++) {

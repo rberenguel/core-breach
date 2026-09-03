@@ -188,8 +188,8 @@ export function generateProceduralLevel() {
     const cell = getCell(mx, mz);
     if (cell.type === CELL_TYPE.EMPTY) {
       cell.type = CELL_TYPE.MOUNTAIN;
-      cell.hp = 2;
-      cell.maxHp = 2;
+      cell.hp = 4;
+      cell.maxHp = 4;
       mountainsPlaced++;
     }
   }
