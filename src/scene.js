@@ -88,6 +88,5 @@ const bgGridHelper = new THREE.GridHelper(140, 70, 0x0066ff, 0x162238);
 bgGridHelper.position.set(camTarget.x, -0.2, camTarget.z);
 scene.add(bgGridHelper);
 
-export const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 export const raycaster = new THREE.Raycaster();
 export const mouse = new THREE.Vector2();

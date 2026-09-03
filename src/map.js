@@ -76,9 +76,24 @@ export function addSpawner() {
     const cell = getCell(sx, sz);
     if (cell.type === CELL_TYPE.EMPTY && !getUnitAt(sx, sz) && !gameState.spawners.find(s => s.x === sx && s.z === sz)) {
       const worldPos = gridToWorld(sx, sz);
-      const hexGeo = new THREE.RingGeometry(0.42, 0.58, 6, 1);
-      hexGeo.rotateX(-Math.PI / 2);
-      const mesh = new THREE.Mesh(hexGeo, new THREE.MeshBasicMaterial({ color: 0xff2233, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+      const outer = 0.9;
+      const inner = 0.72;
+      const shape = new THREE.Shape();
+      shape.moveTo(-outer, -outer);
+      shape.lineTo( outer, -outer);
+      shape.lineTo( outer,  outer);
+      shape.lineTo(-outer,  outer);
+      shape.lineTo(-outer, -outer);
+      const hole = new THREE.Path();
+      hole.moveTo(-inner, -inner);
+      hole.lineTo( inner, -inner);
+      hole.lineTo( inner,  inner);
+      hole.lineTo(-inner,  inner);
+      hole.lineTo(-inner, -inner);
+      shape.holes.push(hole);
+      const squareGeo = new THREE.ShapeGeometry(shape, 1);
+      squareGeo.rotateX(-Math.PI / 2);
+      const mesh = new THREE.Mesh(squareGeo, new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
       mesh.position.set(worldPos.x, 0.07, worldPos.z);
       scene.add(mesh);
 
@@ -88,18 +103,48 @@ export function addSpawner() {
   }
 }
 
+function isValidPlayerTile(x, z) {
+  if (!isValidTile(x, z)) return false;
+  const cell = getCell(x, z);
+  return cell.type === CELL_TYPE.EMPTY && !getUnitAt(x, z);
+}
+
+function findFallbackPlayerPosition(startZ = 7) {
+  for (let z = startZ; z >= 0; z--) {
+    for (let x = 0; x < GRID_SIZE; x++) {
+      if (isValidPlayerTile(x, z)) return { x, z };
+    }
+  }
+  return null;
+}
+
+const PLAYER_SPAWN_SLOTS = [
+  { x: 1, z: 7 },
+  { x: 3, z: 7 },
+  { x: 6, z: 7 }
+];
+
 export function generateProceduralLevel() {
   rng.init(gameState.seed);
-  resetUnitIdCounter();
-  initEmptyBoard();
 
-  gameState.units.forEach(u => { if (u.mesh) scene.remove(u.mesh); });
+  // Preserve surviving player units
+  const survivors = gameState.units.filter(u => u.alive && u.faction === FACTION.PLAYER);
+  const deadAndEnemies = gameState.units.filter(u => !survivors.includes(u));
+
+  // Remove meshes for dead units and enemies, keep survivor meshes
+  deadAndEnemies.forEach(u => { if (u.mesh) scene.remove(u.mesh); });
   gameState.spawners.forEach(s => { if (s.mesh) scene.remove(s.mesh); });
-  gameState.units = [];
+
+  // Temporarily move survivors off-board so they don't block placement
+  survivors.forEach(u => { u.x = -1; u.z = -1; });
+
+  // Keep survivors; enemies will be respawned
+  gameState.units = [...survivors];
   gameState.cores = [];
   gameState.spawners = [];
   gameState.pools = [];
   gameState.selectedUnit = null;
+  gameState.selectedTile = null;
   gameState.moveHistory = null;
   gameState.round = 1;
   gameState.difficulty = getDifficultyForRound(gameState.battleCount);
@@ -107,6 +152,12 @@ export function generateProceduralLevel() {
   gameState.enemyHpBonus = scaling.enemyHpBonus;
   gameState.phase = 'PLAYER_TURN';
 
+  // Reset ID counter only on fresh runs (no survivors)
+  if (survivors.length === 0) {
+    resetUnitIdCounter();
+  }
+
+  initEmptyBoard();
   clearHighlights();
   clearTelegraphs();
 
@@ -244,18 +295,101 @@ export function generateProceduralLevel() {
     }
   }
 
-  // 5. Spawn 3 Blue Player Units (random pick from 4)
-  const allPlayerConfigs = [UNIT_TYPES.STRIKER, UNIT_TYPES.ARTILLERY, UNIT_TYPES.RAILGUN, UNIT_TYPES.ROCKET];
-  for (let i = allPlayerConfigs.length - 1; i > 0; i--) {
-    const j = Math.floor(rng.random() * (i + 1));
-    [allPlayerConfigs[i], allPlayerConfigs[j]] = [allPlayerConfigs[j], allPlayerConfigs[i]];
-  }
-  const playerConfigs = allPlayerConfigs.slice(0, 3);
-  const playerXs = [1, 3, 6];
-  const playerRots = [0, 0, Math.PI];
-  playerConfigs.forEach((cfg, idx) => {
-    spawnUnit(cfg, playerXs[idx], 7, playerRots[idx]);
+  // 5. Place surviving player units and fill empty slots
+  const usedSlots = new Set();
+  survivors.forEach((unit, idx) => {
+    // Try fixed slot first, then fallback
+    let pos = null;
+    if (idx < PLAYER_SPAWN_SLOTS.length) {
+      const slot = PLAYER_SPAWN_SLOTS[idx];
+      if (isValidPlayerTile(slot.x, slot.z)) {
+        pos = { ...slot };
+        usedSlots.add(`${slot.x},${slot.z}`);
+      }
+    }
+    if (!pos) {
+      for (const slot of PLAYER_SPAWN_SLOTS) {
+        const key = `${slot.x},${slot.z}`;
+        if (!usedSlots.has(key) && isValidPlayerTile(slot.x, slot.z)) {
+          pos = { ...slot };
+          usedSlots.add(key);
+          break;
+        }
+      }
+    }
+    if (!pos) pos = findFallbackPlayerPosition(7);
+
+    if (pos) {
+      unit.x = pos.x;
+      unit.z = pos.z;
+      const worldPos = gridToWorld(pos.x, pos.z);
+      unit.mesh.position.set(worldPos.x, 0, worldPos.z);
+    }
+    unit.mesh.rotation.y = 0;
+    unit.hasMoved = false;
+    unit.hasActed = false;
+    unit.dataOverload = false;
+    unit.intent = null;
+    unit.justSpawned = false;
+    unit.skipAttack = false;
+    unit.moveHistory = null;
+    unit.hp = Math.min(unit.maxHp, unit.hp + 1);
   });
+
+  // Fill empty slots with fresh units
+  const currentPlayerCount = gameState.units.filter(u => u.alive && u.faction === FACTION.PLAYER).length;
+  const needed = 3 - currentPlayerCount;
+  if (needed > 0) {
+    const allPlayerConfigs = [UNIT_TYPES.STRIKER, UNIT_TYPES.ARTILLERY, UNIT_TYPES.RAILGUN, UNIT_TYPES.ROCKET];
+    const usedTypes = new Set(gameState.units.filter(u => u.alive && u.faction === FACTION.PLAYER).map(u => u.type));
+    const availableConfigs = allPlayerConfigs.filter(c => !usedTypes.has(c.id));
+
+    for (let i = availableConfigs.length - 1; i > 0; i--) {
+      const j = Math.floor(rng.random() * (i + 1));
+      [availableConfigs[i], availableConfigs[j]] = [availableConfigs[j], availableConfigs[i]];
+    }
+
+    const freshConfigs = availableConfigs.slice(0, needed);
+    freshConfigs.forEach((cfg, idx) => {
+      let pos = null;
+      for (const slot of PLAYER_SPAWN_SLOTS) {
+        const key = `${slot.x},${slot.z}`;
+        if (!usedSlots.has(key) && isValidPlayerTile(slot.x, slot.z)) {
+          pos = { ...slot };
+          usedSlots.add(key);
+          break;
+        }
+      }
+      if (!pos) pos = findFallbackPlayerPosition(7);
+      if (pos) {
+        spawnUnit(cfg, pos.x, pos.z, 0);
+      }
+    });
+  }
+
+  // Handle pending recruit from upgrade
+  if (gameState.pendingRecruit) {
+    const recruitConfig = Object.values(UNIT_TYPES).find(u => u.id === gameState.pendingRecruit && u.faction === FACTION.PLAYER);
+    if (recruitConfig) {
+      const playerCount = gameState.units.filter(u => u.alive && u.faction === FACTION.PLAYER).length;
+      if (playerCount < 3) {
+        let pos = null;
+        for (const slot of PLAYER_SPAWN_SLOTS) {
+          const key = `${slot.x},${slot.z}`;
+          if (!usedSlots.has(key) && isValidPlayerTile(slot.x, slot.z)) {
+            pos = { ...slot };
+            usedSlots.add(key);
+            break;
+          }
+        }
+        if (!pos) pos = findFallbackPlayerPosition(7);
+        if (pos) {
+          spawnUnit(recruitConfig, pos.x, pos.z, 0);
+        }
+      }
+    }
+    gameState.pendingRecruit = null;
+  }
 
   // 6. Spawn Red Enemy Units (random pick from 4, count scales with level)
   const enemyCount = 3 + scaling.extraEnemies;

@@ -1,4 +1,8 @@
-import { GRID_SIZE, TILE_SIZE, CELL_TYPE } from './config.js';
+import { GRID_SIZE, TILE_SIZE, CELL_TYPE, MAX_ROUNDS } from './config.js';
+
+export function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 export function gridToWorld(gx, gz) {
   return { x: gx * TILE_SIZE, z: gz * TILE_SIZE };
@@ -11,7 +15,7 @@ export function isValidTile(gx, gz) {
 export const gameState = {
   seed: 0,
   round: 1,
-  maxRounds: 5,
+  maxRounds: MAX_ROUNDS,
   battleCount: 1,
   difficulty: 'EASY',
   phase: 'PLAYER_TURN',
@@ -29,7 +33,8 @@ export const gameState = {
   attackPreview: null,
   telegraphMarkers: [],
   particles: [],
-  boardGroup: null
+  boardGroup: null,
+  pendingRecruit: null
 };
 
 let _unitIdCounter = 0;

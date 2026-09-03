@@ -158,15 +158,15 @@ export function computeAttackOutcome(unit, tx, tz, dx, dz) {
 
   if (unit.type === 'STRIKER') {
     const u = getUnitAt(tx, tz);
-    if (u) addHit(u, 2, dx, dz);
+    if (u) addHit(u, unit.dmg, dx, dz);
   } else if (unit.type === 'ARTILLERY') {
     const center = getUnitAt(tx, tz);
-    if (center) addHit(center, 1, 0, 0);
+    if (center) addHit(center, unit.dmg, 0, 0);
     [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(([adx, adz]) => {
       const ax = tx + adx, az = tz + adz;
       if (isValidTile(ax, az)) {
         const u = getUnitAt(ax, az);
-        if (u) addHit(u, 1, adx, adz);
+        if (u) addHit(u, unit.dmg, adx, adz);
       }
     });
   } else if (unit.type === 'RAILGUN') {
@@ -174,7 +174,7 @@ export function computeAttackOutcome(unit, tx, tz, dx, dz) {
       const lx = unit.x + dx * r, lz = unit.z + dz * r;
       if (!isValidTile(lx, lz)) break;
       const u = getUnitAt(lx, lz);
-      if (u) addHit(u, 1, dx, dz);
+      if (u) addHit(u, unit.dmg, dx, dz);
       if (lx === tx && lz === tz) break;
     }
   } else if (unit.type === 'ROCKET') {
@@ -185,7 +185,7 @@ export function computeAttackOutcome(unit, tx, tz, dx, dz) {
       const u = getUnitAt(lx, lz);
       if (u || cell.type === CELL_TYPE.MOUNTAIN || cell.type === CELL_TYPE.CORE) {
         if (u) {
-          const dmg = 2;
+          const dmg = unit.dmg;
           const newHp = Math.max(0, u.hp - dmg);
           hits.push({ unit: u, damage: dmg, newHp, dies: newHp <= 0, push: null, fate: newHp <= 0 ? 'KILL' : 'HIT' });
         }

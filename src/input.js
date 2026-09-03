@@ -1,5 +1,5 @@
-import { FACTION, CELL_TYPE, UNIT_TYPES, TILE_SIZE, GRID_SIZE, getDifficultyForRound } from './config.js';
-import { gameState, getCell, getUnitAt, isValidTile, gridToWorld, findPath } from './state.js';
+import { FACTION, CELL_TYPE, UNIT_TYPES, GRID_SIZE } from './config.js';
+import { gameState, getCell, getUnitAt, isValidTile, gridToWorld, findPath, sleep } from './state.js';
 import { rng } from './rng.js';
 import { scene, camera, raycaster, mouse } from './scene.js';
 import { audio } from './audio.js';
@@ -9,10 +9,6 @@ import { spawnFloatingText, spawnFireEffect, spawnExplosionEffect, spawnLaserBea
 import { moveUnitMeshSmooth, animatePunchMesh } from './animations.js';
 import { applyKnockback, damageUnit, damageCore, damageMountain, recalculateEnemyIntents, clearTelegraphs, triggerVictory, executeEnemyMovementPhase } from './combat.js';
 import { spawnUnit, addSpawner } from './map.js';
-
-export function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 export function selectUnit(unit) {
   clearAttackPreview();
@@ -242,12 +238,12 @@ export function executePlayerAttack(unit, targetX, targetZ, dirX, dirZ) {
     const targetCell = getCell(targetX, targetZ);
 
     if (targetUnit) {
-      damageUnit(targetUnit, 2);
+      damageUnit(targetUnit, unit.dmg);
       applyKnockback(targetUnit, dirX, dirZ);
     } else if (targetCell && targetCell.type === CELL_TYPE.MOUNTAIN) {
-      damageMountain(targetCell, 1);
+      damageMountain(targetCell, unit.dmg);
     } else if (targetCell && targetCell.type === CELL_TYPE.CORE) {
-      damageCore(targetCell, 2);
+      damageCore(targetCell, unit.dmg);
     }
   } else if (unit.type === 'ARTILLERY') {
     audio.playMortar();
@@ -260,9 +256,9 @@ export function executePlayerAttack(unit, targetX, targetZ, dirX, dirZ) {
 
       const centerUnit = getUnitAt(targetX, targetZ);
       const centerCell = getCell(targetX, targetZ);
-      if (centerUnit) damageUnit(centerUnit, 1);
-      if (centerCell && centerCell.type === CELL_TYPE.MOUNTAIN) damageMountain(centerCell, 1);
-      if (centerCell && centerCell.type === CELL_TYPE.CORE) damageCore(centerCell, 1);
+      if (centerUnit) damageUnit(centerUnit, unit.dmg);
+      if (centerCell && centerCell.type === CELL_TYPE.MOUNTAIN) damageMountain(centerCell, unit.dmg);
+      if (centerCell && centerCell.type === CELL_TYPE.CORE) damageCore(centerCell, unit.dmg);
 
       const adjacent = [
         { x: targetX + 1, z: targetZ, dx: 1, dz: 0 },
@@ -274,7 +270,7 @@ export function executePlayerAttack(unit, targetX, targetZ, dirX, dirZ) {
         if (isValidTile(adj.x, adj.z)) {
           const u = getUnitAt(adj.x, adj.z);
           if (u) {
-            damageUnit(u, 1);
+            damageUnit(u, unit.dmg);
             applyKnockback(u, adj.dx, adj.dz);
           }
         }
@@ -294,12 +290,12 @@ export function executePlayerAttack(unit, targetX, targetZ, dirX, dirZ) {
       const u = getUnitAt(lx, lz);
       const cell = getCell(lx, lz);
       if (u) {
-        damageUnit(u, 1);
+        damageUnit(u, unit.dmg);
         applyKnockback(u, dirX, dirZ);
       } else if (cell && cell.type === CELL_TYPE.MOUNTAIN) {
-        damageMountain(cell, 1);
+        damageMountain(cell, unit.dmg);
       } else if (cell && cell.type === CELL_TYPE.CORE) {
-        damageCore(cell, 1);
+        damageCore(cell, unit.dmg);
       }
       if (lx === targetX && lz === targetZ) break;
     }
@@ -324,9 +320,9 @@ export function executePlayerAttack(unit, targetX, targetZ, dirX, dirZ) {
       spawnFireEffect(endPos.x, 0.5, endPos.z, 20);
       const targetUnit = getUnitAt(impactX, impactZ);
       const targetCell = getCell(impactX, impactZ);
-      if (targetUnit) damageUnit(targetUnit, 2);
-      if (targetCell && targetCell.type === CELL_TYPE.MOUNTAIN) damageMountain(targetCell, 2);
-      if (targetCell && targetCell.type === CELL_TYPE.CORE) damageCore(targetCell, 2);
+      if (targetUnit) damageUnit(targetUnit, unit.dmg);
+      if (targetCell && targetCell.type === CELL_TYPE.MOUNTAIN) damageMountain(targetCell, unit.dmg);
+      if (targetCell && targetCell.type === CELL_TYPE.CORE) damageCore(targetCell, unit.dmg);
     });
   }
 
@@ -449,32 +445,34 @@ export async function executeEnemyPhase() {
     if (remainingCores === 0) return;
   }
 
-  // Spawner emergence
-  for (let i = gameState.spawners.length - 1; i >= 0; i--) {
-    const sp = gameState.spawners[i];
-    const blocker = getUnitAt(sp.x, sp.z);
-    if (blocker) {
-      spawnFloatingText('EMERGENCE BLOCKED! -1', blocker.mesh.position, '#00ff88');
-      spawnFireEffect(blocker.mesh.position.x, 0.4, blocker.mesh.position.z, 15);
-      damageUnit(blocker, 1);
-      audio.playPunch();
-    } else {
-      scene.remove(sp.mesh);
-      gameState.spawners.splice(i, 1);
-      const bugTypes = [UNIT_TYPES.TANK, UNIT_TYPES.FLIER, UNIT_TYPES.MORTAR, UNIT_TYPES.CANNON];
-      const newType = bugTypes[Math.floor(rng.random() * bugTypes.length)];
-      const newEnemy = spawnUnit(newType, sp.x, sp.z, Math.PI);
-      newEnemy.justSpawned = true;
-      newEnemy.skipAttack = true;
-      spawnFloatingText('EMERGED!', newEnemy.mesh.position, '#ff0033');
-      spawnFireEffect(newEnemy.mesh.position.x, 0.5, newEnemy.mesh.position.z, 25);
-      audio.playExplosion();
+  // Spawner emergence (skipped on final round)
+  if (gameState.round < gameState.maxRounds) {
+    for (let i = gameState.spawners.length - 1; i >= 0; i--) {
+      const sp = gameState.spawners[i];
+      const blocker = getUnitAt(sp.x, sp.z);
+      if (blocker) {
+        spawnFloatingText('EMERGENCE BLOCKED! -1', blocker.mesh.position, '#00ff88');
+        spawnFireEffect(blocker.mesh.position.x, 0.4, blocker.mesh.position.z, 15);
+        damageUnit(blocker, 1);
+        audio.playPunch();
+      } else {
+        scene.remove(sp.mesh);
+        gameState.spawners.splice(i, 1);
+        const bugTypes = [UNIT_TYPES.TANK, UNIT_TYPES.FLIER, UNIT_TYPES.MORTAR, UNIT_TYPES.CANNON];
+        const newType = bugTypes[Math.floor(rng.random() * bugTypes.length)];
+        const newEnemy = spawnUnit(newType, sp.x, sp.z, Math.PI);
+        newEnemy.justSpawned = true;
+        newEnemy.skipAttack = true;
+        spawnFloatingText('EMERGED!', newEnemy.mesh.position, '#ff0033');
+        spawnFireEffect(newEnemy.mesh.position.x, 0.5, newEnemy.mesh.position.z, 25);
+        audio.playExplosion();
+      }
+      await sleep(250);
     }
-    await sleep(250);
-  }
 
-  if (gameState.spawners.length < 2 && gameState.round < gameState.maxRounds) {
-    addSpawner();
+    if (gameState.spawners.length < 2) {
+      addSpawner();
+    }
   }
 
   gameState.round++;

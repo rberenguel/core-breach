@@ -5,8 +5,9 @@ import { generateProceduralLevel } from './map.js';
 import { rng } from './rng.js';
 import { handlePreciseGridClick, executeEnemyPhase, undoPlayerMove, executePlayerRepair, executePlayerAttack } from './input.js';
 import { showAttackHighlights, clearAttackPreview } from './highlights.js';
+import { getSelectedDraftCard, applyUpgrade, clearDraft, hasDraftSelection } from './upgrades.js';
 import { updateParticles } from './vfx.js';
-import { FACTION, GRID_SIZE, TILE_SIZE } from './config.js';
+import { FACTION } from './config.js';
 
 // --- Camera pan, pinch, and tap with interact.js ---
 const container = document.getElementById('canvas-container');
@@ -60,7 +61,6 @@ interact(document.body)
       const cy = event.clientY ?? event.pageY ?? 0;
       mouse.x = (cx / window.innerWidth) * 2 - 1;
       mouse.y = -(cy / window.innerHeight) * 2 + 1;
-      console.log('[TAP] raw=', cx, cy, 'mouse=', mouse.x.toFixed(3), mouse.y.toFixed(3), 'target=', event.target.id || event.target.tagName);
       handlePreciseGridClick();
     }
   })
@@ -91,19 +91,7 @@ window.addEventListener('resize', () => {
 });
 
 // --- Button event listeners ---
-['btn-act-primary','btn-act-repair','btn-undo-move','btn-end-turn'].forEach(id => {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.addEventListener('pointerdown', e => {
-    console.log('[CLICKLOG] pointerdown on', id, 'target=', e.target.tagName, 'class=', e.target.className);
-  });
-  el.addEventListener('click', e => {
-    console.log('[CLICKLOG] click on', id);
-  });
-});
-
 document.getElementById('btn-act-primary').addEventListener('click', () => {
-  console.log('[CLICKLOG] btn-act-primary handler fired');
   const unit = gameState.selectedUnit;
   if (!unit || unit.faction !== FACTION.PLAYER || unit.hasActed) return;
   if (gameState.attackPreview) {
@@ -118,14 +106,12 @@ document.getElementById('btn-act-primary').addEventListener('click', () => {
 });
 
 document.getElementById('btn-act-repair').addEventListener('click', () => {
-  console.log('[CLICKLOG] btn-act-repair handler fired');
   if (gameState.selectedUnit && gameState.selectedUnit.faction === FACTION.PLAYER && !gameState.selectedUnit.hasActed) {
     executePlayerRepair(gameState.selectedUnit);
   }
 });
 
 document.getElementById('btn-undo-move').addEventListener('click', () => {
-  console.log('[CLICKLOG] btn-undo-move handler fired');
   undoPlayerMove();
 });
 document.getElementById('btn-end-turn').addEventListener('click', executeEnemyPhase);
@@ -158,9 +144,27 @@ document.getElementById('btn-copy-link').addEventListener('click', () => {
 });
 
 document.getElementById('btn-modal-restart').addEventListener('click', () => {
-  document.getElementById('modal-screen').classList.add('opacity-0', 'pointer-events-none');
-  gameState.battleCount++;
-  newSeed();
+  if (gameState.phase === 'VICTORY') {
+    if (!hasDraftSelection()) return;
+    const selectedCard = getSelectedDraftCard();
+    if (selectedCard) {
+      applyUpgrade(selectedCard);
+    }
+    clearDraft();
+    document.getElementById('draft-section').classList.add('hidden');
+    document.getElementById('modal-screen').classList.add('opacity-0', 'pointer-events-none');
+    gameState.battleCount++;
+    newSeed();
+  } else if (gameState.phase === 'GAME_OVER') {
+    // Reset run: remove all player units
+    gameState.units.filter(u => u.faction === FACTION.PLAYER).forEach(u => {
+      if (u.mesh) scene.remove(u.mesh);
+    });
+    gameState.units = gameState.units.filter(u => u.faction !== FACTION.PLAYER);
+    gameState.battleCount = 0;
+    document.getElementById('modal-screen').classList.add('opacity-0', 'pointer-events-none');
+    newSeed();
+  }
 });
 
 document.getElementById('btn-audio').addEventListener('click', () => {

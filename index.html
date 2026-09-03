@@ -85,8 +85,9 @@
         </div>
       </div>
 
-      <div class="mt-2 text-xs text-slate-200 font-mono-tech border-t border-blue-500/30 pt-2 flex items-center justify-between">
+      <div class="mt-2 text-xs text-slate-200 font-mono-tech border-t border-blue-500/30 pt-2 flex items-center justify-between gap-2">
         <span>STATUS: <span id="unit-action-status" class="text-blue-300 font-bold">READY</span></span>
+        <span>DAMAGE: <span id="unit-dmg-val" class="text-red-400 font-bold">2</span></span>
         <span>MOBILITY: <span id="unit-move-val" class="text-yellow-300 font-bold">3 TILES</span></span>
       </div>
 
@@ -166,7 +167,7 @@
         Cores preserved against the red faction onslaught.
       </p>
 
-      <div class="grid grid-cols-2 gap-3 mb-6 bg-black/60 p-3.5 border border-blue-500/30 text-xs font-mono-tech">
+      <div class="grid grid-cols-2 gap-3 mb-4 bg-black/60 p-3.5 border border-blue-500/30 text-xs font-mono-tech">
         <div>
           <span class="text-slate-400 block">ROUNDS COMPLETED</span>
           <span id="modal-stat-rounds" class="text-yellow-400 text-lg font-bold">5 / 5</span>
@@ -175,6 +176,12 @@
           <span class="text-slate-400 block">CORES INTACT</span>
           <span id="modal-stat-cores" class="text-emerald-400 text-lg font-bold">3 / 3</span>
         </div>
+      </div>
+
+      <!-- Upgrade Draft -->
+      <div id="draft-section" class="hidden">
+        <div class="text-[10px] font-mono-tech text-blue-400 uppercase tracking-widest font-bold mb-2">Tactical Upgrade</div>
+        <div id="draft-cards" class="flex justify-center gap-3 mb-4 flex-wrap"></div>
       </div>
 
       <button id="btn-modal-restart" class="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-orbitron font-black tracking-widest uppercase cyber-btn transition glow-blue text-sm">

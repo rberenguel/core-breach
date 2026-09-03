@@ -1,5 +1,5 @@
-import { FACTION, CELL_TYPE, MAX_ROUNDS, TILE_SIZE, GRID_SIZE, DIFFICULTY } from './config.js';
-import { gameState, getCell, getUnitAt, gridToWorld, isValidTile, findPath } from './state.js';
+import { FACTION, CELL_TYPE, TILE_SIZE, GRID_SIZE, DIFFICULTY } from './config.js';
+import { gameState, getCell, getUnitAt, gridToWorld, isValidTile, findPath, sleep } from './state.js';
 import { scene } from './scene.js';
 import { rng } from './rng.js';
 import { audio } from './audio.js';
@@ -7,6 +7,7 @@ import { spawnFloatingText, spawnFireEffect } from './vfx.js';
 import { moveUnitMeshSmooth, flashMeshColor, scaleDownAndRemove, fallIntoChasm } from './animations.js';
 import { updateHUD } from './hud.js';
 import { Materials, createMountainMesh, createRubbleMesh } from './materials.js';
+import { generateDraftCards, renderDraftCards, clearDraft } from './upgrades.js';
 
 export function applyKnockback(targetUnit, pushDx, pushDz) {
   if (!targetUnit || !targetUnit.alive) return;
@@ -210,10 +211,6 @@ export function damageMountain(cell, amount) {
     gameState.boardGroup.add(mesh);
     cell.featureMesh = mesh;
   }
-}
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 export function clearTelegraphs() {
@@ -433,11 +430,14 @@ function chooseBestAction(enemy, priorAttackTiles) {
   };
 }
 
+// Approximate telegraph: scores from the enemy's current tile without movement,
+// difficulty pooling, repeat-target penalty, or prior-attack-zone logic.
+// The displayed target may differ from the actual turn decision.
 function bestAttackFromTile(enemy, fromX, fromZ) {
   const DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
   const maxRange = getEnemyMaxRange(enemy);
   const direct = enemy.pattern === 'RANGED_DIRECT';
-  let bestScore = 0;
+  let bestScore = -Infinity;
   let bestTarget = { x: fromX, z: Math.min(GRID_SIZE - 1, fromZ + 1), dx: 0, dz: 1 };
 
   for (const [dx, dz] of DIRS) {
@@ -446,20 +446,14 @@ function bestAttackFromTile(enemy, fromX, fromZ) {
       const tz = fromZ + dz * r;
       if (!isValidTile(tx, tz)) break;
 
-      const cell = getCell(tx, tz);
-      const unit = getUnitAt(tx, tz);
-
-      let score = 0;
-      if (cell.type === CELL_TYPE.CORE) score = 125;
-      else if (unit && unit.faction === FACTION.PLAYER) score = 100;
-      else if (unit && unit.faction === FACTION.ENEMY) score = -150;
-      else if (cell.type === CELL_TYPE.MOUNTAIN) score = 30;
-
+      const score = scoreAction(enemy, fromX, fromZ, tx, tz, dx, dz, new Set());
       if (score > bestScore) {
         bestScore = score;
         bestTarget = { x: tx, z: tz, dx, dz };
       }
 
+      const cell = getCell(tx, tz);
+      const unit = getUnitAt(tx, tz);
       if (direct && (unit || cell.type === CELL_TYPE.MOUNTAIN || cell.type === CELL_TYPE.CORE)) break;
     }
   }
@@ -561,8 +555,23 @@ export function triggerVictory() {
   title.innerText = 'SECTOR SECURED';
   title.className = 'text-3xl md:text-4xl font-orbitron font-black text-blue-400 mt-1 mb-3 text-glow-blue';
   desc.innerText = `Tactical directive accomplished. ${intactCores} Core(s) preserved intact!`;
-  statRounds.innerText = `${MAX_ROUNDS} / ${MAX_ROUNDS}`;
+  statRounds.innerText = `${gameState.maxRounds} / ${gameState.maxRounds}`;
   statCores.innerText = `${intactCores} / ${gameState.cores.length}`;
+
+  // Show draft cards (1 per core saved)
+  generateDraftCards(intactCores);
+  renderDraftCards('draft-cards');
+  document.getElementById('draft-section').classList.remove('hidden');
+  const deployBtn = document.getElementById('btn-modal-restart');
+  deployBtn.innerText = 'DEPLOY';
+  // Disable until a card is chosen (auto-enabled if only 1 card)
+  if (intactCores > 1) {
+    deployBtn.disabled = true;
+    deployBtn.style.opacity = '0.4';
+  } else {
+    deployBtn.disabled = false;
+    deployBtn.style.opacity = '1';
+  }
 
   modal.classList.remove('opacity-0', 'pointer-events-none');
 }
@@ -578,8 +587,12 @@ export function triggerGameOver(reason) {
   title.innerText = 'DEFENSE FAILED';
   title.className = 'text-3xl md:text-4xl font-orbitron font-black text-red-500 mt-1 mb-3 text-glow-red';
   desc.innerText = reason || 'All Cores destroyed. Sector lost.';
-  statRounds.innerText = `${gameState.round} / ${MAX_ROUNDS}`;
+  statRounds.innerText = `${gameState.round} / ${gameState.maxRounds}`;
   statCores.innerText = '0 / 3';
+
+  document.getElementById('draft-section').classList.add('hidden');
+  clearDraft();
+  document.getElementById('btn-modal-restart').innerText = 'NEW RUN';
 
   modal.classList.remove('opacity-0', 'pointer-events-none');
 }

@@ -19,7 +19,7 @@ export function getLevelScaling(battleCount) {
     extraEnemies: Math.min(2, Math.floor(battleCount / 2)),
     extraSpawners: Math.min(2, Math.floor((battleCount + 1) / 3)),
     enemyHpBonus: Math.min(1, Math.floor(battleCount / 6)),
-    coreHp: battleCount >= 5 ? 1 : 2
+    coreHp: battleCount >= 5 ? 2 : 3
   };
 }
 
@@ -46,7 +46,8 @@ export const UNIT_TYPES = {
     move: 3,
     actName: 'TITAN PUNCH',
     actDesc: '2 DMG + 1 KNOCKBACK',
-    rangeType: 'MELEE'
+    rangeType: 'MELEE',
+    dmg: 2
   },
   ARTILLERY: {
     id: 'ARTILLERY',
@@ -57,7 +58,8 @@ export const UNIT_TYPES = {
     move: 3,
     actName: 'BEAM MORTAR',
     actDesc: '1 DMG + 4-WAY SHOCKWAVE',
-    rangeType: 'MORTAR'
+    rangeType: 'MORTAR',
+    dmg: 1
   },
   RAILGUN: {
     id: 'RAILGUN',
@@ -68,7 +70,8 @@ export const UNIT_TYPES = {
     move: 4,
     actName: 'RAIL CANNON',
     actDesc: '1 DMG LINE + PUSH TARGET',
-    rangeType: 'LINE'
+    rangeType: 'LINE',
+    dmg: 1
   },
   ROCKET: {
     id: 'ROCKET',
@@ -79,7 +82,8 @@ export const UNIT_TYPES = {
     move: 3,
     actName: 'MISSILE',
     actDesc: '2 DMG DIRECT AT RANGE',
-    rangeType: 'ROCKET'
+    rangeType: 'ROCKET',
+    dmg: 2
   },
   TANK: {
     id: 'TANK',

@@ -167,6 +167,47 @@ button {
   z-index: 50;
 }
 
+.draft-card {
+  background: rgba(9, 14, 26, 0.94);
+  border: 1px solid rgba(0, 102, 255, 0.35);
+  padding: 1rem 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
+  flex: 1 1 100px;
+  max-width: 160px;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+.draft-card:hover {
+  border-color: rgba(0, 240, 255, 0.7);
+  box-shadow: 0 0 16px rgba(0, 102, 255, 0.3);
+  transform: translateY(-2px);
+}
+.draft-card.selected {
+  border-color: #00ff88;
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+}
+.draft-card-icon {
+  font-size: 28px;
+  color: #00f0ff;
+  margin-bottom: 0.5rem;
+  line-height: 1;
+}
+.draft-card-label {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: 0.7rem;
+  color: #fff;
+  margin-bottom: 0.35rem;
+  letter-spacing: 0.05em;
+}
+.draft-card-desc {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
 @keyframes floatUp {
   0% {
     opacity: 0;

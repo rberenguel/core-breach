@@ -176,7 +176,9 @@
 .text-yellow-300 { color: #fde047; }
 .text-yellow-400 { color: #facc15; }
 .text-green-400  { color: #4ade80; }
+.text-emerald-300 { color: #6ee7b7; }
 .text-emerald-400 { color: #34d399; }
+.text-orange-300 { color: #fdba74; }
 .text-purple-100 { color: #f3e8ff; }
 .text-purple-300 { color: #d8b4fe; }
 
@@ -203,6 +205,7 @@
 .border-purple-400   { border-color: #c084fc; }
 .border-slate-600    { border-color: #475569; }
 .border-slate-600\/40 { border-color: rgba(71,85,105,0.4); }
+.border-orange-400\/40 { border-color: rgba(251,146,60,0.4); }
 
 /* End-turn button: gradient + colored shadow (Tailwind gradient classes don't work without its variable system) */
 #btn-end-turn {
@@ -229,10 +232,5 @@
 
 /* Responsive md: (768px) */
 @media (min-width: 768px) {
-  .md\:flex-row    { flex-direction: row; }
-  .md\:items-center { align-items: center; }
-  .md\:w-88        { width: 22rem; }
-  .md\:w-14        { width: 3.5rem; }
-  .md\:h-14        { height: 3.5rem; }
   .md\:text-4xl    { font-size: 2.25rem; line-height: 2.5rem; }
 }

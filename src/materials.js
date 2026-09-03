@@ -26,8 +26,6 @@ export const Materials = {
     transparent: true,
     opacity: 0.55
   }),
-  mountainGlow: new THREE.MeshBasicMaterial({ color: 0x00f0ff, wireframe: true }),
-
   coreGreen: new THREE.MeshStandardMaterial({
     color: 0x00ff88,
     emissive: 0x00aa55,
@@ -65,7 +63,6 @@ export const Materials = {
     metalness: 0.15
   }),
 
-  spawnerRing: new THREE.MeshBasicMaterial({ color: 0xff0033, wireframe: true })
 };
 
 export function createQuantumCoreMesh() {
