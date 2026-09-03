@@ -140,6 +140,7 @@ export function generateProceduralLevel() {
 
   // Keep survivors; enemies will be respawned
   gameState.units = [...survivors];
+
   gameState.cores = [];
   gameState.spawners = [];
   gameState.pools = [];
@@ -336,34 +337,17 @@ export function generateProceduralLevel() {
     unit.hp = Math.min(unit.maxHp, unit.hp + 1);
   });
 
-  // Fill empty slots with fresh units
-  const currentPlayerCount = gameState.units.filter(u => u.alive && u.faction === FACTION.PLAYER).length;
-  const needed = 3 - currentPlayerCount;
-  if (needed > 0) {
+  // Fresh run: spawn initial 3 random player units (only when no survivors)
+  if (survivors.length === 0) {
     const allPlayerConfigs = [UNIT_TYPES.STRIKER, UNIT_TYPES.ARTILLERY, UNIT_TYPES.RAILGUN, UNIT_TYPES.ROCKET];
-    const usedTypes = new Set(gameState.units.filter(u => u.alive && u.faction === FACTION.PLAYER).map(u => u.type));
-    const availableConfigs = allPlayerConfigs.filter(c => !usedTypes.has(c.id));
-
-    for (let i = availableConfigs.length - 1; i > 0; i--) {
+    for (let i = allPlayerConfigs.length - 1; i > 0; i--) {
       const j = Math.floor(rng.random() * (i + 1));
-      [availableConfigs[i], availableConfigs[j]] = [availableConfigs[j], availableConfigs[i]];
+      [allPlayerConfigs[i], allPlayerConfigs[j]] = [allPlayerConfigs[j], allPlayerConfigs[i]];
     }
-
-    const freshConfigs = availableConfigs.slice(0, needed);
-    freshConfigs.forEach((cfg, idx) => {
-      let pos = null;
-      for (const slot of PLAYER_SPAWN_SLOTS) {
-        const key = `${slot.x},${slot.z}`;
-        if (!usedSlots.has(key) && isValidPlayerTile(slot.x, slot.z)) {
-          pos = { ...slot };
-          usedSlots.add(key);
-          break;
-        }
-      }
-      if (!pos) pos = findFallbackPlayerPosition(7);
-      if (pos) {
-        spawnUnit(cfg, pos.x, pos.z, 0);
-      }
+    const playerConfigs = allPlayerConfigs.slice(0, 3);
+    playerConfigs.forEach((cfg, idx) => {
+      const slot = PLAYER_SPAWN_SLOTS[idx];
+      spawnUnit(cfg, slot.x, slot.z, 0);
     });
   }
 
@@ -390,6 +374,7 @@ export function generateProceduralLevel() {
     }
     gameState.pendingRecruit = null;
   }
+
 
   // 6. Spawn Red Enemy Units (random pick from 4, count scales with level)
   const enemyCount = 3 + scaling.extraEnemies;

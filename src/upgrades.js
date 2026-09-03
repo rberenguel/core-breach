@@ -27,7 +27,7 @@ export function generateDraftCards(count) {
   // Utility upgrades
   pool.push({ id: 'repair_full', type: 'utility', action: 'repair_full', label: 'FULL REPAIR', desc: 'Restore most damaged unit to full HP', icon: 'ph-wrench' });
 
-  if (playerUnits.length < 3 && availableTypes.length > 0) {
+  if (playerUnits.length < 3 && availableTypes.length > 0 && rng.random() < 0.25) {
     const recruitType = availableTypes[Math.floor(rng.random() * availableTypes.length)];
     const typeConfig = Object.values(UNIT_TYPES).find(u => u.id === recruitType);
     pool.push({ id: 'recruit', type: 'utility', action: 'recruit', recruitType, label: 'NEW RECRUIT', desc: `Add ${typeConfig.name} to squad`, icon: 'ph-user-plus' });
